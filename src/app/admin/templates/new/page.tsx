@@ -36,7 +36,7 @@ export default function NewAdminTemplatePage() {
 
   function move(index: number, delta: number) {
     const nextIndex = index + delta;
-    if (nextIndex < 1 || nextIndex >= steps.length) return;
+    if (index === 0 || nextIndex < 1 || nextIndex >= steps.length) return;
     setSteps((items) => {
       const next = [...items];
       [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
@@ -51,8 +51,9 @@ export default function NewAdminTemplatePage() {
     }]);
   }
 
-  const validThreshold = Number.isFinite(Number(threshold)) && Number(threshold) > 0;
+  const validThreshold = threshold.trim() !== "" && Number.isFinite(Number(threshold)) && Number(threshold) > 0;
   const validRoles = steps.every((step) => step.role.trim().length > 0);
+  const validConditions = steps.every((step) => documentType === "DI" || step.condition !== "above_threshold");
   const validEmails = steps.every((step) => !step.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(step.email));
   const preview = {
     name: name.trim(),
@@ -67,7 +68,7 @@ export default function NewAdminTemplatePage() {
 
   async function saveDraft() {
     setNotice("");
-    if (!name.trim() || !validRoles || !validEmails || (documentType === "DI" && !validThreshold)) {
+    if (!name.trim() || !validRoles || !validEmails || !validConditions || (documentType === "DI" && !validThreshold)) {
       setNotice("Corrigez les champs avant d'enregistrer.");
       return;
     }
@@ -118,7 +119,11 @@ export default function NewAdminTemplatePage() {
               className="mt-2 w-full rounded-lg border p-3 font-normal" />
           </label>
           <label className="text-sm font-semibold">Type de document
-            <select value={documentType} onChange={(e) => setDocumentType(e.target.value as "DI" | "DR")}
+            <select value={documentType} onChange={(e) => {
+                const next = e.target.value as "DI" | "DR";
+                setDocumentType(next);
+                if (next === "DR") setSteps((items) => items.map((step) => step.condition === "above_threshold" ? { ...step, condition: "always" } : step));
+              }}
               className="mt-2 w-full rounded-lg border p-3 font-normal">
               <option value="DI">DI</option><option value="DR">DR</option>
             </select>
