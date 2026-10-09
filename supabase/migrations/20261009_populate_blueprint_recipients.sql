@@ -67,57 +67,7 @@ begin
       and is_required and step_order = 1 and recipient_type = 'signer'
   ) then raise exception 'Missing first requester step'; end if;
 
-  if v_requester.email !~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+
-  for v_step in
-    select s.id,s.step_order,s.role_label,s.default_name,s.default_email,
-           s.recipient_type,s.is_requester,s.is_required,s.condition_type,
-           o.default_name as override_name,o.default_email as override_email,
-           o.is_enabled as override_enabled
-    from public.signature_blueprint_steps s
-    left join public.signature_blueprint_step_overrides o
-      on o.step_id = s.id and o.blueprint_override_id = v_override_id
-    where s.blueprint_id = v_blueprint.id
-    order by s.step_order
-  loop
-    if v_step.is_requester then continue; end if;
-    if v_step.is_required and v_step.recipient_type <> 'signer' then
-      raise exception 'Required workflow step must sign';
-    end if;
-    if v_step.condition_type = 'it' then
-      raise exception 'IT condition requires a trusted document classification';
-    end if;
-    if v_step.condition_type = 'above_threshold' then
-      if v_doc.document_type <> 'DI' or v_doc.amount_eur is null then
-        raise exception 'Invalid conditional DI step';
-      end if;
-      if v_doc.amount_eur < v_blueprint.financial_threshold_eur then continue; end if;
-    end if;
-    v_step_enabled := v_step.is_required or coalesce(v_step.override_enabled,true);
-    if not v_step_enabled then continue; end if;
-    v_name := coalesce(nullif(btrim(v_step.override_name),''),
-                       nullif(btrim(v_step.default_name),''));
-    v_email := lower(coalesce(nullif(btrim(v_step.override_email),''),
-                              nullif(btrim(v_step.default_email),'')));
-    if v_name is null or v_email is null
-      or v_email !~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
-    then raise exception 'Signer identity incomplete for role %',v_step.role_label; end if;
-    if v_email = any(v_seen_emails) then
-      raise exception 'Duplicate recipient email in workflow'; end if;
-    v_seen_emails := array_append(v_seen_emails,v_email);
-    v_order := v_order + 1;
-    insert into public.recipients
-      (document_id,name,email,role_label,recipient_type,signing_order,status)
-    values (p_document_id,v_name,v_email,v_step.role_label,
-            v_step.recipient_type,v_order,'pending');
-    v_count := v_count + 1;
-  end loop;
-  if v_count = 0 then raise exception 'Blueprint has no additional recipients'; end if;
-  return v_count;
-end;
-$$;
-revoke all on function public.onosign_populate_blueprint_recipients(uuid) from public;
-grant execute on function public.onosign_populate_blueprint_recipients(uuid) to authenticated;
- then
+  if v_requester.email !~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$' then
     raise exception 'Invalid requester email';
   end if;
   v_seen_emails := array[lower(btrim(v_requester.email))];
@@ -133,6 +83,9 @@ grant execute on function public.onosign_populate_blueprint_recipients(uuid) to 
     order by s.step_order
   loop
     if v_step.is_requester then continue; end if;
+    if v_step.is_required and v_step.recipient_type <> 'signer' then
+      raise exception 'Required workflow step must sign';
+    end if;
     if v_step.condition_type = 'it' then
       raise exception 'IT condition requires a trusted document classification';
     end if;
