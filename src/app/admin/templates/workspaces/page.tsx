@@ -128,6 +128,11 @@ export default function HotelWorkflowPreview() {
                   {override ? (override.is_enabled ? "Personnalisation existante" : "Modèle désactivé pour cet établissement")
                     : "Aucune personnalisation : valeurs du modèle central"}
                 </p>
+                <button type="button"
+                  onClick={() => router.push(`/admin/templates/workspaces/${workspaceId}/${selectedBlueprint.id}`)}
+                  className="mt-4 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700">
+                  Personnaliser les signataires
+                </button>
                 <ol className="mt-5 space-y-3">
                   {steps.map((step) => (
                     <li key={step.id} className="rounded-xl border border-slate-200 p-4">
