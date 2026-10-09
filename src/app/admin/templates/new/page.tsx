@@ -53,6 +53,7 @@ export default function NewAdminTemplatePage() {
 
   const validThreshold = threshold.trim() !== "" && Number.isFinite(Number(threshold)) && Number(threshold) > 0;
   const validRoles = steps.every((step) => step.role.trim().length > 0);
+  const validRequester = steps[0]?.id === "requester" && steps[0]?.required && steps[0]?.action === "signer" && steps[0]?.condition === "always";
   const validConditions = steps.every((step) => documentType === "DI" || step.condition !== "above_threshold");
   const validEmails = steps.every((step) => !step.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(step.email));
   const preview = {
@@ -68,7 +69,7 @@ export default function NewAdminTemplatePage() {
 
   async function saveDraft() {
     setNotice("");
-    if (!name.trim() || !validRoles || !validEmails || !validConditions || (documentType === "DI" && !validThreshold)) {
+    if (!name.trim() || !validRoles || !validRequester || !validEmails || !validConditions || (documentType === "DI" && !validThreshold)) {
       setNotice("Corrigez les champs avant d'enregistrer.");
       return;
     }
@@ -106,11 +107,10 @@ export default function NewAdminTemplatePage() {
         </button>
         <h1 className="mt-7 text-3xl font-bold">Configurer un circuit de signature</h1>
         <p className="mt-2 text-slate-600">
-          Préparez un modèle commun aux hôtels ou un circuit du siège. Les paramètres sont un brouillon local :
-          aucune modification n'est encore enregistrée dans Supabase.
+          Préparez un modèle commun aux hôtels ou un circuit du siège. Le bouton d’enregistrement nécessite la fonction SQL de création.
         </p>
         <div className="mt-7 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Enregistrement disponible après application des deux migrations SQL. Les nouveaux modèles restent inactifs jusqu'à leur validation.
+          Les modèles créés restent inactifs. Les règles de signature financière ne sont pas encore vérifiées lors de l’envoi : ne pas utiliser ces brouillons pour des signatures réelles.
         </div>
 
         <section className="mt-6 grid gap-4 rounded-2xl border bg-white p-6 md:grid-cols-2">
@@ -195,7 +195,7 @@ export default function NewAdminTemplatePage() {
                       className="mt-1 w-full rounded-lg border p-2 disabled:bg-slate-100">
                       <option value="always">Toujours</option>
                       <option value="it">Demande concernant l'IT</option>
-                      <option value="above_threshold">Montant ≥ seuil</option>
+                      {documentType === "DI" && <option value="above_threshold">Montant ≥ seuil</option>}
                     </select>
                   </label>
                   <label className="flex items-center gap-2 self-end pb-2 text-sm">
@@ -210,7 +210,7 @@ export default function NewAdminTemplatePage() {
         </section>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <button type="button" disabled={saving || !name.trim() || !validRoles || !validEmails || (documentType === "DI" && !validThreshold)}
+          <button type="button" disabled={saving || !name.trim() || !validRoles || !validRequester || !validEmails || !validConditions || (documentType === "DI" && !validThreshold)}
             onClick={() => void saveDraft()}
             className="rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white disabled:opacity-40">
             {saving ? "Enregistrement…" : "Enregistrer le brouillon"}
