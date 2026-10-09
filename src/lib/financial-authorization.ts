@@ -29,7 +29,7 @@ export function validateFinancialAuthorization(
 ): FinancialCheck {
   if (input.documentType === "DR") return { ok: true, requiredPowers: 0 };
   const { amountEur, thresholdEur } = input;
-  if (amountEur === null || !Number.isFinite(amountEur) || amountEur < 0) {
+  if (amountEur === null || !Number.isFinite(amountEur) || amountEur < 0 || !Number.isInteger(Math.round(amountEur * 100)) || Math.abs(amountEur * 100 - Math.round(amountEur * 100)) > 1e-7) {
     return { ok: false, reason: "Montant DI invalide.", requiredPowers: 0 };
   }
   if (thresholdEur === null || !Number.isFinite(thresholdEur) || thresholdEur <= 0) {
@@ -41,9 +41,11 @@ export function validateFinancialAuthorization(
       recipient.role === "power_of_attorney" &&
       recipient.action === "signer" &&
       recipient.enabled &&
-      !!recipient.email?.trim()
+      !!recipient.id.trim() &&
+      !!recipient.email?.trim() &&
+      /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(recipient.email.trim())
   );
-  const uniqueIds = new Set(eligible.map((recipient) => recipient.id));
+  const uniqueIds = new Set(eligible.map((recipient) => recipient.id.trim()));
   const uniqueEmails = new Set(eligible.map((recipient) => recipient.email!.trim().toLowerCase()));
   if (uniqueIds.size < requiredPowers || uniqueEmails.size < requiredPowers) {
     return {
