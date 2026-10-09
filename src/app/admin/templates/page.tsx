@@ -97,10 +97,16 @@ export default function AdminTemplatesPage() {
             <h1 className="mt-2 text-3xl font-bold">Modèles DI / DR</h1>
             <p className="mt-2 text-slate-600">Consultez les circuits existants et leurs signataires, par établissement.</p>
           </div>
+          <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={() => router.push("/admin/templates/workspaces")}
+            className="rounded-xl border border-emerald-600 px-5 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
+            Aperçu par hôtel
+          </button>
           <button type="button" onClick={() => router.push("/admin/templates/new")}
             className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700">
             + Configurer un circuit
           </button>
+          </div>
         </div>
 
         {!loading && !error && (
