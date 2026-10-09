@@ -37,7 +37,8 @@ export async function GET(request: Request) {
   if (w.data.organization_id !== b.data.organization_id ||
       !admin.some((membership) => membership.organization_id === w.data.organization_id))
     return failure("Établissement non autorisé.", 403);
-  if ((w.data.type === "hotel" ? "hotels" : "head_office") !== b.data.scope)
+  if (!["hotel", "head_office", "head_office_department", "sarh"].includes(w.data.type) ||
+      (w.data.type === "hotel" ? "hotels" : "head_office") !== b.data.scope)
     return failure("Périmètre incompatible.", 400);
 
   const overrides = o.data?.signature_blueprint_step_overrides ?? [];
@@ -51,7 +52,8 @@ export async function GET(request: Request) {
         is_required: step.is_required, condition_type: step.condition_type,
         name: step.is_requester ? null : (change?.default_name ?? step.default_name),
         email: step.is_requester ? null : (change?.default_email ?? step.default_email),
-        enabled: step.is_required || step.is_requester ? true : (change?.is_enabled ?? true),
+        enabled: step.is_required || step.is_requester ? true :
+          ((o.data?.is_enabled ?? true) && (change?.is_enabled ?? true)),
       };
     });
 
