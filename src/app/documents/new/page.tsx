@@ -34,6 +34,7 @@ export default function NewDocumentPage() {
 );
 
   const [title, setTitle] = useState("");
+  const [amountEur, setAmountEur] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [organizationId, setOrganizationId] = useState("");
@@ -166,6 +167,11 @@ setWorkflowTemplates(templatesData ?? []);
       return;
     }
 
+    if (documentType === "DI" && (amountEur.trim() === "" || !Number.isFinite(Number(amountEur)) || Number(amountEur) < 0 || !/^\\d+(?:[.,]\\d{1,2})?$/.test(amountEur.trim()))) {
+      setErrorMessage("Saisissez un montant DI valide en euros (2 décimales maximum).");
+      return;
+    }
+
     if (!file) {
       setErrorMessage("Please select a PDF file.");
       return;
@@ -216,6 +222,8 @@ setWorkflowTemplates(templatesData ?? []);
           title: title.trim(),
           storage_path: uploadedPath,
           status: "draft",
+          document_type: documentType,
+          amount_eur: documentType === "DI" ? Number(amountEur.replace(",", ".")) : null,
         })
         .select("id")
         .single();
@@ -252,10 +260,7 @@ if (creatorRecipientError) {
   );
 }
 
-      sessionStorage.setItem(
-        `onosign_document_type_${createdDocument.id}`,
-        documentType
-      );
+
 
       router.push(`/documents/${createdDocument.id}/prepare`);
     } catch (error) {
@@ -448,6 +453,23 @@ if (creatorRecipientError) {
             </div>
           </section>
 
+          {documentType === "DI" && (
+            <div className="mt-5">
+              <label htmlFor="amount-eur" className="mb-2 block text-sm font-semibold">
+                Montant de la DI (€)
+              </label>
+              <input id="amount-eur" inputMode="decimal" type="text"
+                value={amountEur} onChange={(event) => setAmountEur(event.target.value)}
+                placeholder="Exemple : 19999,99"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              />
+              <p className="mt-2 text-xs text-amber-700">
+                Le montant est enregistré, mais le contrôle obligatoire des fondés de pouvoir
+                n'est pas encore activé à l'envoi.
+              </p>
+            </div>
+          )}
+
           <div className="my-8 border-t border-slate-200" />
 
           {/* STEP 3 */}
@@ -579,7 +601,7 @@ if (creatorRecipientError) {
                 submitting ||
                 !workspace ||
                 !title.trim() ||
-                !file
+                !file || (documentType === "DI" && (amountEur.trim() === "" || !/^\\d+(?:[.,]\\d{1,2})?$/.test(amountEur.trim())))
               }
               className="rounded-xl bg-emerald-600 px-7 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
