@@ -167,7 +167,7 @@ setWorkflowTemplates(templatesData ?? []);
       return;
     }
 
-    if (documentType === "DI" && (amountEur.trim() === "" || !Number.isFinite(Number(amountEur)) || Number(amountEur) < 0 || !/^\\d+(?:[.,]\\d{1,2})?$/.test(amountEur.trim()))) {
+    if (documentType === "DI" && (amountEur.trim() === "" || !Number.isFinite(Number(amountEur.replace(",", "."))) || Number(amountEur.replace(",", ".")) < 0 || !/^\\d+(?:[.,]\\d{1,2})?$/.test(amountEur.trim()))) {
       setErrorMessage("Saisissez un montant DI valide en euros (2 décimales maximum).");
       return;
     }
@@ -213,6 +213,8 @@ setWorkflowTemplates(templatesData ?? []);
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
+      // Legacy workflow selection is display-only until template application is
+      // implemented atomically. Do not persist an unverified template identifier.
       const { data: createdDocument, error: documentError } = await supabase
         .from("documents")
         .insert({
@@ -415,6 +417,12 @@ if (creatorRecipientError) {
                 </option>
               ))}
             </select>
+            {selectedTemplateId && (
+              <p className="mt-2 text-sm text-amber-700">
+                Ce modèle n'est pas encore appliqué automatiquement au document.
+                Les destinataires devront être configurés manuellement.
+              </p>
+            )}
             {availableTemplates.length === 0 && (
               <p className="mt-2 text-sm text-amber-600">
                 Aucun modèle actif disponible pour ce type de document.
