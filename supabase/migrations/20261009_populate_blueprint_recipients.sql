@@ -17,6 +17,8 @@ declare
   v_step_enabled boolean;
   v_order integer := 1;
   v_count integer := 0;
+  v_workspace_type text;
+  v_workspace_org uuid;
   v_seen_emails text[] := array[]::text[];
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
@@ -30,11 +32,17 @@ begin
     select 1 from public.workspace_members m
     where m.workspace_id = v_doc.workspace_id and m.user_id = auth.uid()
   ) then raise exception 'Workspace access denied'; end if;
+  select type,organization_id into v_workspace_type,v_workspace_org
+    from public.workspaces where id = v_doc.workspace_id;
   select * into v_blueprint from public.signature_blueprints
     where id = v_doc.signature_blueprint_id;
   if not found or v_blueprint.is_active is distinct from true
     or v_blueprint.organization_id is distinct from v_doc.organization_id
     or v_blueprint.document_type is distinct from v_doc.document_type
+    or v_workspace_org is distinct from v_doc.organization_id
+    or v_workspace_type not in ('hotel','head_office','head_office_department','sarh')
+    or (v_workspace_type = 'hotel' and v_blueprint.scope <> 'hotels')
+    or (v_workspace_type <> 'hotel' and v_blueprint.scope <> 'head_office')
   then raise exception 'Blueprint unavailable'; end if;
 
   select id, is_enabled into v_override_id, v_enabled
@@ -59,6 +67,59 @@ begin
       and is_required and step_order = 1 and recipient_type = 'signer'
   ) then raise exception 'Missing first requester step'; end if;
 
+  if v_requester.email !~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+
+  for v_step in
+    select s.id,s.step_order,s.role_label,s.default_name,s.default_email,
+           s.recipient_type,s.is_requester,s.is_required,s.condition_type,
+           o.default_name as override_name,o.default_email as override_email,
+           o.is_enabled as override_enabled
+    from public.signature_blueprint_steps s
+    left join public.signature_blueprint_step_overrides o
+      on o.step_id = s.id and o.blueprint_override_id = v_override_id
+    where s.blueprint_id = v_blueprint.id
+    order by s.step_order
+  loop
+    if v_step.is_requester then continue; end if;
+    if v_step.is_required and v_step.recipient_type <> 'signer' then
+      raise exception 'Required workflow step must sign';
+    end if;
+    if v_step.condition_type = 'it' then
+      raise exception 'IT condition requires a trusted document classification';
+    end if;
+    if v_step.condition_type = 'above_threshold' then
+      if v_doc.document_type <> 'DI' or v_doc.amount_eur is null then
+        raise exception 'Invalid conditional DI step';
+      end if;
+      if v_doc.amount_eur < v_blueprint.financial_threshold_eur then continue; end if;
+    end if;
+    v_step_enabled := v_step.is_required or coalesce(v_step.override_enabled,true);
+    if not v_step_enabled then continue; end if;
+    v_name := coalesce(nullif(btrim(v_step.override_name),''),
+                       nullif(btrim(v_step.default_name),''));
+    v_email := lower(coalesce(nullif(btrim(v_step.override_email),''),
+                              nullif(btrim(v_step.default_email),'')));
+    if v_name is null or v_email is null
+      or v_email !~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
+    then raise exception 'Signer identity incomplete for role %',v_step.role_label; end if;
+    if v_email = any(v_seen_emails) then
+      raise exception 'Duplicate recipient email in workflow'; end if;
+    v_seen_emails := array_append(v_seen_emails,v_email);
+    v_order := v_order + 1;
+    insert into public.recipients
+      (document_id,name,email,role_label,recipient_type,signing_order,status)
+    values (p_document_id,v_name,v_email,v_step.role_label,
+            v_step.recipient_type,v_order,'pending');
+    v_count := v_count + 1;
+  end loop;
+  if v_count = 0 then raise exception 'Blueprint has no additional recipients'; end if;
+  return v_count;
+end;
+$$;
+revoke all on function public.onosign_populate_blueprint_recipients(uuid) from public;
+grant execute on function public.onosign_populate_blueprint_recipients(uuid) to authenticated;
+ then
+    raise exception 'Invalid requester email';
+  end if;
   v_seen_emails := array[lower(btrim(v_requester.email))];
   for v_step in
     select s.id,s.step_order,s.role_label,s.default_name,s.default_email,
