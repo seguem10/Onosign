@@ -213,8 +213,8 @@ setWorkflowTemplates(templatesData ?? []);
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
-      // Legacy workflow selection is display-only until template application is
-      // implemented atomically. Do not persist an unverified template identifier.
+      // A legacy template selected in the UI must never be treated as applied.
+      // The document remains a draft until an atomic workflow assignment exists.
       const { data: createdDocument, error: documentError } = await supabase
         .from("documents")
         .insert({
@@ -410,7 +410,7 @@ if (creatorRecipientError) {
               onChange={(event) => setSelectedTemplateId(event.target.value)}
               className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
             >
-              <option value="">Sélectionner un modèle</option>
+              <option value="">Aucun modèle appliqué (configuration manuelle)</option>
               {availableTemplates.map((template) => (
                 <option key={template.id} value={template.id}>
                   {template.name}
@@ -419,13 +419,13 @@ if (creatorRecipientError) {
             </select>
             {selectedTemplateId && (
               <p className="mt-2 text-sm text-amber-700">
-                Ce modèle n'est pas encore appliqué automatiquement au document.
-                Les destinataires devront être configurés manuellement.
+                Le modèle sélectionné est uniquement indicatif : il ne sera ni enregistré
+                ni appliqué. Configurez et vérifiez tous les signataires manuellement.
               </p>
             )}
             {availableTemplates.length === 0 && (
               <p className="mt-2 text-sm text-amber-600">
-                Aucun modèle actif disponible pour ce type de document.
+                Aucun modèle historique actif disponible pour ce type de document.
               </p>
             )}
           </div>
