@@ -334,6 +334,40 @@ console.log("1.7 - AFTER setLoading false");
     }
   }, [documentId]);
 
+  const [availableBlueprints, setAvailableBlueprints] = useState<Array<{blueprint_id:string;blueprint_name:string}>>([]);
+  const [selectedBlueprint, setSelectedBlueprint] = useState("");
+  const [assigningBlueprint, setAssigningBlueprint] = useState(false);
+
+  useEffect(() => {
+    if (!document || document.status !== "draft" || document.signature_blueprint_id) return;
+    let cancelled = false;
+    const supabase = createClient();
+    void supabase.rpc("onosign_available_document_blueprints", {p_document_id: documentId})
+      .then(({data,error}) => {
+        if (!cancelled && !error && data) setAvailableBlueprints(data);
+      });
+    return () => { cancelled = true; };
+  }, [document, documentId]);
+
+  async function assignSelectedBlueprint() {
+    if (!selectedBlueprint || assigningBlueprint || !document || document.status !== "draft") return;
+    setAssigningBlueprint(true);
+    setBlueprintMessage("");
+    try {
+      const supabase = createClient();
+      const {error} = await supabase.rpc("onosign_assign_blueprint", {
+        p_document_id: documentId, p_blueprint_id: selectedBlueprint,
+      });
+      if (error) throw new Error(error.message);
+      setDocument({...document, signature_blueprint_id: selectedBlueprint});
+      setBlueprintMessage("Modèle associé. Vous pouvez maintenant appliquer ses signataires.");
+    } catch (error) {
+      setBlueprintMessage(error instanceof Error ? error.message : "Association impossible");
+    } finally {
+      setAssigningBlueprint(false);
+    }
+  }
+
   async function populateAssignedBlueprint() {
     if (!document?.signature_blueprint_id || document.status !== "draft" ||
         recipients.length !== 1 || signatureFields.length > 0 || populatingBlueprint) return;
@@ -1056,6 +1090,31 @@ function resizeField(
         </div>
       </header>
 
+      {document.status === "draft" && !document.signature_blueprint_id && availableBlueprints.length > 0 && (
+        <section className="border-b border-emerald-200 bg-emerald-50 px-6 py-4">
+          <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3">
+            <label htmlFor="blueprint-choice" className="text-sm font-semibold text-emerald-950">
+              Modèle de signature disponible
+            </label>
+            <select id="blueprint-choice" value={selectedBlueprint}
+              onChange={(event) => setSelectedBlueprint(event.target.value)}
+              className="min-w-64 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm">
+              <option value="">Choisir un modèle actif…</option>
+              {availableBlueprints.map((blueprint) => (
+                <option key={blueprint.blueprint_id} value={blueprint.blueprint_id}>
+                  {blueprint.blueprint_name}
+                </option>
+              ))}
+            </select>
+            <button type="button" onClick={() => void assignSelectedBlueprint()}
+              disabled={!selectedBlueprint || assigningBlueprint || recipients.length !== 1 || signatureFields.length > 0}
+              className="rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
+              {assigningBlueprint ? "Association…" : "Associer le modèle"}
+            </button>
+            {blueprintMessage && <p role="status" className="w-full text-sm text-emerald-950">{blueprintMessage}</p>}
+          </div>
+        </section>
+      )}
       {document.signature_blueprint_id && document.status === "draft" && (
         <section className="border-b border-amber-200 bg-amber-50 px-6 py-4">
           <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3">
