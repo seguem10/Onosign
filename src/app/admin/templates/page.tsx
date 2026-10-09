@@ -22,9 +22,26 @@ type TemplateRow = {
   }[];
 };
 
+type BlueprintRow = {
+  id: string;
+  name: string;
+  document_type: string;
+  scope: string;
+  is_active: boolean;
+  financial_threshold_eur: number | null;
+  signature_blueprint_steps: {
+    id: string;
+    step_order: number;
+    role_label: string;
+    recipient_type: string;
+    is_required: boolean;
+  }[];
+};
+
 export default function AdminTemplatesPage() {
   const router = useRouter();
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
+  const [blueprints, setBlueprints] = useState<BlueprintRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -49,8 +66,18 @@ export default function AdminTemplatesPage() {
         .order("name");
 
       if (!active) return;
-      if (queryError) setError(queryError.message);
-      else setTemplates((data ?? []) as TemplateRow[]);
+      const { data: blueprintData, error: blueprintError } = await supabase
+        .from("signature_blueprints")
+        .select(`id, name, document_type, scope, is_active, financial_threshold_eur,
+          signature_blueprint_steps(id, step_order, role_label, recipient_type, is_required)`)
+        .order("name");
+      if (!active) return;
+      if (queryError || blueprintError) {
+        setError(queryError?.message ?? blueprintError?.message ?? "Erreur de chargement");
+      } else {
+        setTemplates((data ?? []) as TemplateRow[]);
+        setBlueprints((blueprintData ?? []) as BlueprintRow[]);
+      }
       setLoading(false);
     }
     void load();
@@ -76,6 +103,54 @@ export default function AdminTemplatesPage() {
           </button>
         </div>
 
+        {!loading && !error && (
+          <section className="mt-8">
+            <h2 className="text-xl font-bold">Catalogue central · nouveaux modèles</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Brouillons communs aux hôtels ou au siège. Les modèles inactifs ne sont pas disponibles à l'envoi.
+            </p>
+            {blueprints.length === 0 ? (
+              <div className="mt-4 rounded-xl border bg-white p-5 text-sm text-slate-600">
+                Aucun nouveau modèle enregistré.
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {blueprints.map((item) => (
+                  <article key={item.id} className="rounded-xl border bg-white p-5 shadow-sm">
+                    <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">{item.document_type}</span>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                        {item.scope === "hotels" ? "Hôtels" : "Siège"}
+                      </span>
+                      <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-800">
+                        {item.is_active ? "Actif" : "Brouillon inactif"}
+                      </span>
+                    </div>
+                    <h3 className="mt-3 text-lg font-bold">{item.name}</h3>
+                    {item.financial_threshold_eur != null && (
+                      <p className="mt-1 text-sm text-slate-600">
+                        Seuil DI : {item.financial_threshold_eur.toLocaleString("fr-FR")} €
+                      </p>
+                    )}
+                    <ol className="mt-4 space-y-2">
+                      {[...(item.signature_blueprint_steps ?? [])]
+                        .sort((a, b) => a.step_order - b.step_order)
+                        .map((step) => (
+                          <li key={step.id} className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                            {step.step_order}. {step.role_label}
+                            <span className="ml-2 text-xs text-slate-500">
+                              {step.is_required ? "Obligatoire" : "Facultatif"} · {step.recipient_type}
+                            </span>
+                          </li>
+                        ))}
+                    </ol>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+        <h2 className="mt-10 text-xl font-bold">Circuits existants par établissement</h2>
         {loading ? <p className="mt-8">Chargement des modèles…</p>
           : error ? <div role="alert" className="mt-8 rounded-xl border border-red-200 bg-red-50 p-5 text-red-700">{error}</div>
           : templates.length === 0 ? (
