@@ -30,6 +30,7 @@ export default function HotelTemplateEditPage() {
   const [edits, setEdits] = useState<Edit[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -85,6 +86,7 @@ export default function HotelTemplateEditPage() {
     [blueprint]
   );
   function update(stepId: string, patch: Partial<Edit>) {
+    setDirty(true);
     setEdits((current) => current.map((item) =>
       item.step_id === stepId ? { ...item, ...patch } : item
     ));
@@ -122,6 +124,7 @@ export default function HotelTemplateEditPage() {
           is_enabled: edit.enabled,
         })), { onConflict: "blueprint_override_id,step_id" });
       if (stepsError) throw stepsError;
+      setDirty(false);
       setMessage("Personnalisation enregistrée. Elle ne modifie pas le modèle central.");
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Enregistrement impossible.");
@@ -180,9 +183,9 @@ export default function HotelTemplateEditPage() {
               })}
             </div>
             <div className="mt-6 flex flex-wrap items-center gap-4">
-              <button type="button" disabled={saving} onClick={() => void save()}
+              <button type="button" disabled={saving || !dirty} onClick={() => void save()}
                 className="rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white disabled:opacity-50">
-                {saving ? "Enregistrement…" : "Enregistrer les personnalisations"}
+                {saving ? "Enregistrement…" : dirty ? "Enregistrer les personnalisations" : "Aucune modification"}
               </button>
               {overrideId && <span className="text-xs text-slate-500">Configuration existante</span>}
             </div>
