@@ -19,6 +19,7 @@ declare
   v_order integer := 0;
   v_requester_count integer := 0;
   v_role text;
+  v_name text;
   v_email text;
   v_action text;
   v_condition text;
@@ -40,7 +41,8 @@ begin
   if p_name is null or length(trim(p_name)) not between 2 and 160 then
     raise exception 'Invalid model name';
   end if;
-  if p_document_type not in ('DI','DR') or p_scope not in ('hotels','head_office') then
+  if p_document_type is null or p_scope is null
+    or p_document_type not in ('DI','DR') or p_scope not in ('hotels','head_office') then
     raise exception 'Invalid document type or scope';
   end if;
   if (p_document_type = 'DI' and (p_threshold_eur is null or p_threshold_eur <= 0))
@@ -59,6 +61,7 @@ begin
     v_order := v_order + 1;
     v_role := nullif(trim(v_step->>'role'), '');
     v_email := nullif(trim(v_step->>'email'), '');
+    v_name := nullif(trim(v_step->>'name'), '');
     v_action := v_step->>'action';
     v_condition := v_step->>'condition';
     if jsonb_typeof(v_step->'required') <> 'boolean'
@@ -68,6 +71,7 @@ begin
     v_required := (v_step->>'required')::boolean;
     v_requester := (v_step->>'is_requester')::boolean;
     if v_role is null or length(v_role) > 120 then raise exception 'Invalid role'; end if;
+    if v_name is not null and length(v_name) > 200 then raise exception 'Invalid name'; end if;
     if v_email is not null and (length(v_email) > 254
       or v_email !~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$') then
       raise exception 'Invalid email';
@@ -78,6 +82,12 @@ begin
     end if;
     if v_condition = 'above_threshold' and p_document_type <> 'DI' then
       raise exception 'Threshold conditions require DI';
+    end if;
+    if v_order = 1 and not v_requester then
+      raise exception 'First step must be requester';
+    end if;
+    if v_requester and (v_name is not null or v_email is not null) then
+      raise exception 'Requester identity must not be configured in a template';
     end if;
     if v_requester then
       v_requester_count := v_requester_count + 1;
