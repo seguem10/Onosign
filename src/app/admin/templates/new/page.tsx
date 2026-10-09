@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase";
 
 type Step = {
   id: string;
@@ -75,21 +74,21 @@ export default function NewAdminTemplatePage() {
     }
     setSaving(true);
     try {
-      const supabase = createClient();
-      const { data: auth, error: authError } = await supabase.auth.getUser();
-      if (authError || !auth.user) throw new Error("Session expirée.");
-      const { error: rpcError } = await supabase.rpc("onosign_create_blueprint", {
-        p_name: name.trim(),
-        p_document_type: documentType,
-        p_scope: scope,
-        p_threshold_eur: documentType === "DI" ? Number(threshold) : null,
-        p_steps: steps.map((step, index) => ({
-          role: step.role.trim(), name: step.name.trim(), email: step.email.trim(),
-          action: step.action, condition: step.condition,
-          required: step.required, is_requester: index === 0,
-        })),
+      const response = await fetch("/api/admin/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(), document_type: documentType, scope,
+          threshold_eur: documentType === "DI" ? Number(threshold) : null,
+          steps: steps.map((step, index) => ({
+            role: step.role.trim(), name: step.name.trim(), email: step.email.trim(),
+            action: step.action, condition: step.condition,
+            required: step.required, is_requester: index === 0,
+          })),
+        }),
       });
-      if (rpcError) throw rpcError;
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message ?? "Échec de l'enregistrement.");
       router.push("/admin/templates");
       router.refresh();
     } catch (err) {
