@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase";
 
 type Step = {
   id: string;
@@ -27,6 +28,7 @@ export default function NewAdminTemplatePage() {
   const [threshold, setThreshold] = useState("20000");
   const [steps, setSteps] = useState<Step[]>(initialSteps);
   const [notice, setNotice] = useState("");
+  const [saving, setSaving] = useState(false);
 
   function change(id: string, patch: Partial<Step>) {
     setSteps((items) => items.map((step) => step.id === id ? { ...step, ...patch } : step));
@@ -63,6 +65,38 @@ export default function NewAdminTemplatePage() {
     steps: steps.map((step, index) => ({ ...step, order: index + 1 })),
   };
 
+  async function saveDraft() {
+    setNotice("");
+    if (!name.trim() || !validRoles || !validEmails || (documentType === "DI" && !validThreshold)) {
+      setNotice("Corrigez les champs avant d'enregistrer.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError || !auth.user) throw new Error("Session expirée.");
+      const { error: rpcError } = await supabase.rpc("onosign_create_blueprint", {
+        p_name: name.trim(),
+        p_document_type: documentType,
+        p_scope: scope,
+        p_threshold_eur: documentType === "DI" ? Number(threshold) : null,
+        p_steps: steps.map((step, index) => ({
+          role: step.role.trim(), name: step.name.trim(), email: step.email.trim(),
+          action: step.action, condition: step.condition,
+          required: step.required, is_requester: index === 0,
+        })),
+      });
+      if (rpcError) throw rpcError;
+      router.push("/admin/templates");
+      router.refresh();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Échec de l'enregistrement.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-900">
       <div className="mx-auto max-w-5xl">
@@ -75,7 +109,7 @@ export default function NewAdminTemplatePage() {
           aucune modification n'est encore enregistrée dans Supabase.
         </p>
         <div className="mt-7 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Mode préparation : la sauvegarde et les contrôles serveur seront activés après la migration sécurisée de la base.
+          Enregistrement disponible après application des deux migrations SQL. Les nouveaux modèles restent inactifs jusqu'à leur validation.
         </div>
 
         <section className="mt-6 grid gap-4 rounded-2xl border bg-white p-6 md:grid-cols-2">
@@ -171,13 +205,10 @@ export default function NewAdminTemplatePage() {
         </section>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <button type="button" disabled={!name.trim() || !validRoles || !validEmails || (documentType === "DI" && !validThreshold)}
-            onClick={() => {
-              setNotice("Brouillon validé localement. Aucun enregistrement effectué dans Supabase.");
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
+          <button type="button" disabled={saving || !name.trim() || !validRoles || !validEmails || (documentType === "DI" && !validThreshold)}
+            onClick={() => void saveDraft()}
             className="rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white disabled:opacity-40">
-            Vérifier le brouillon
+            {saving ? "Enregistrement…" : "Enregistrer le brouillon"}
           </button>
           {notice && <p role="status" className="self-center text-sm text-emerald-700">{notice}</p>}
         </div>
