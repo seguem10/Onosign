@@ -6,6 +6,7 @@ type StepInput = {
   action: "signer" | "cc";
   condition: "always" | "it" | "above_threshold";
   required: boolean; is_requester: boolean;
+  authorization_role: "none" | "power_of_attorney";
 };
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -57,7 +58,8 @@ export async function POST(request: Request) {
           (step.email.trim() && !emailPattern.test(step.email.trim())) ||
           (step.action !== "signer" && step.action !== "cc") ||
           !["always", "it", "above_threshold"].includes(String(step.condition)) ||
-          typeof step.required !== "boolean" || typeof step.is_requester !== "boolean")
+          typeof step.required !== "boolean" || typeof step.is_requester !== "boolean" ||
+          !["none","power_of_attorney"].includes(String(step.authorization_role ?? "none")))
         return fail(`Étape ${index + 1} invalide.`, 400);
       if (step.condition === "above_threshold" && type !== "DI")
         return fail("Condition financière réservée aux DI.", 400);
@@ -67,10 +69,14 @@ export async function POST(request: Request) {
         return fail("Le demandeur doit signer en premier avec son identité de session.", 400);
       if (step.action === "cc" && step.required)
         return fail("Une copie CC ne peut pas être une signature obligatoire.", 400);
+      if (step.authorization_role === "power_of_attorney" &&
+          (type !== "DI" || index === 0 || step.action !== "signer" || !step.required || step.condition === "it"))
+        return fail("Le fondé de pouvoir doit être un signataire DI obligatoire.", 400);
       steps.push({
         role: step.role.trim(), name: step.name.trim(), email: step.email.trim(),
         action: step.action, condition: step.condition as StepInput["condition"],
         required: step.required, is_requester: step.is_requester,
+        authorization_role: (step.authorization_role ?? "none") as StepInput["authorization_role"],
       });
     }
 
