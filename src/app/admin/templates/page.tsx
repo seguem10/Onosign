@@ -70,9 +70,10 @@ export default function AdminTemplatesPage() {
             <h1 className="mt-2 text-3xl font-bold">Modèles DI / DR</h1>
             <p className="mt-2 text-slate-600">Consultez les circuits existants et leurs signataires, par établissement.</p>
           </div>
-          <span className="rounded-full bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">
-            Consultation uniquement · édition à venir
-          </span>
+          <button type="button" onClick={() => router.push("/admin/templates/new")}
+            className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700">
+            + Configurer un circuit
+          </button>
         </div>
 
         {loading ? <p className="mt-8">Chargement des modèles…</p>
