@@ -69,8 +69,8 @@ export default function HotelTemplateEditPage() {
           const found = overrides.find((entry) => entry.step_id === step.id);
           return {
             step_id: step.id,
-            name: found?.default_name ?? step.default_name ?? "",
-            email: found?.default_email ?? step.default_email ?? "",
+            name: step.is_requester ? "" : (found?.default_name ?? step.default_name ?? ""),
+            email: step.is_requester ? "" : (found?.default_email ?? step.default_email ?? ""),
             enabled: found?.is_enabled ?? true,
           };
         }));
@@ -119,8 +119,8 @@ export default function HotelTemplateEditPage() {
         .upsert(edits.map((edit) => ({
           blueprint_override_id: parent.id,
           step_id: edit.step_id,
-          default_name: edit.name.trim() || null,
-          default_email: edit.email.trim() || null,
+          default_name: orderedSteps.find((step) => step.id === edit.step_id)?.is_requester ? null : (edit.name.trim() || null),
+          default_email: orderedSteps.find((step) => step.id === edit.step_id)?.is_requester ? null : (edit.email.trim() || null),
           is_enabled: edit.enabled,
         })), { onConflict: "blueprint_override_id,step_id" });
       if (stepsError) throw stepsError;
