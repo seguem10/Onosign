@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       return fail("Nom du modèle invalide.", 400);
     if (type !== "DI" && type !== "DR") return fail("Type DI/DR invalide.", 400);
     if (scope !== "hotels" && scope !== "head_office") return fail("Périmètre invalide.", 400);
-    if (type === "DI" && (typeof threshold !== "number" || !Number.isFinite(threshold) || threshold <= 0 || threshold > 999999999999))
+    if (type === "DI" && (typeof threshold !== "number" || !Number.isFinite(threshold) || threshold <= 0 || threshold > 999999999999 || Math.abs(threshold * 100 - Math.round(threshold * 100)) > 1e-7))
       return fail("Seuil financier invalide.", 400);
     if (type === "DR" && threshold !== null) return fail("Aucun seuil autorisé pour DR.", 400);
     if (!Array.isArray(rawSteps) || rawSteps.length < 1 || rawSteps.length > 30)
@@ -65,6 +65,8 @@ export async function POST(request: Request) {
         return fail("Le demandeur doit être la première et unique étape demandeur.", 400);
       if (index === 0 && (!step.required || step.action !== "signer" || step.condition !== "always" || step.name || step.email))
         return fail("Le demandeur doit signer en premier avec son identité de session.", 400);
+      if (step.action === "cc" && step.required)
+        return fail("Une copie CC ne peut pas être une signature obligatoire.", 400);
       steps.push({
         role: step.role.trim(), name: step.name.trim(), email: step.email.trim(),
         action: step.action, condition: step.condition as StepInput["condition"],
