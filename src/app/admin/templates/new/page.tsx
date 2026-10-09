@@ -50,10 +50,10 @@ export default function NewAdminTemplatePage() {
     }]);
   }
 
-  const validThreshold = threshold.trim() !== "" && Number.isFinite(Number(threshold)) && Number(threshold) > 0;
+  const validThreshold = threshold.trim() !== "" && Number.isFinite(Number(threshold)) && Number(threshold) > 0 && /^\\d+(?:\\.\\d{1,2})?$/.test(threshold.trim());
   const validRoles = steps.every((step) => step.role.trim().length > 0);
-  const validRequester = steps[0]?.id === "requester" && steps[0]?.required && steps[0]?.action === "signer" && steps[0]?.condition === "always";
-  const validConditions = steps.every((step) => documentType === "DI" || step.condition !== "above_threshold");
+  const validRequester = steps[0]?.id === "requester" && steps[0]?.required && steps[0]?.action === "signer" && steps[0]?.condition === "always" && !steps[0]?.name && !steps[0]?.email;
+  const validConditions = steps.every((step) => (documentType === "DI" || step.condition !== "above_threshold") && (step.action !== "cc" || !step.required));
   const validEmails = steps.every((step) => !step.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(step.email));
   const preview = {
     name: name.trim(),
@@ -106,7 +106,7 @@ export default function NewAdminTemplatePage() {
         </button>
         <h1 className="mt-7 text-3xl font-bold">Configurer un circuit de signature</h1>
         <p className="mt-2 text-slate-600">
-          Préparez un modèle commun aux hôtels ou un circuit du siège. Le bouton d’enregistrement nécessite la fonction SQL de création.
+          Préparez un modèle commun aux hôtels ou un circuit du siège. L'enregistrement crée un brouillon inactif dans Supabase.
         </p>
         <div className="mt-7 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           Les modèles créés restent inactifs. Les règles de signature financière ne sont pas encore vérifiées lors de l’envoi : ne pas utiliser ces brouillons pour des signatures réelles.
@@ -184,7 +184,7 @@ export default function NewAdminTemplatePage() {
                       placeholder={index === 0 ? "Utilisateur connecté" : "adresse@exemple.com"} className="mt-1 w-full rounded-lg border p-2 disabled:bg-slate-100" />
                   </label>
                   <label className="text-sm">Action
-                    <select disabled={index === 0} value={step.action} onChange={(e) => change(step.id, { action: e.target.value as Step["action"] })}
+                    <select disabled={index === 0} value={step.action} onChange={(e) => change(step.id, { action: e.target.value as Step["action"], ...(e.target.value === "cc" ? { required: false } : {}) })}
                       className="mt-1 w-full rounded-lg border p-2 disabled:bg-slate-100">
                       <option value="signer">Doit signer</option><option value="cc">Reçoit une copie</option>
                     </select>
@@ -200,7 +200,7 @@ export default function NewAdminTemplatePage() {
                   <label className="flex items-center gap-2 self-end pb-2 text-sm">
                     <input type="checkbox" checked={step.required} disabled={index === 0}
                       onChange={(e) => change(step.id, { required: e.target.checked })} />
-                    Signature obligatoire
+                    Étape obligatoire
                   </label>
                 </div>
               </div>
