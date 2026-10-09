@@ -7,6 +7,10 @@ alter table public.documents
   add column if not exists signature_blueprint_id uuid
     references public.signature_blueprints(id) on delete restrict;
 
+alter table public.documents drop constraint if exists onosign_document_type_valid;
+alter table public.documents drop constraint if exists onosign_amount_valid;
+alter table public.documents drop constraint if exists onosign_amount_only_di;
+
 alter table public.documents
   add constraint onosign_document_type_valid
     check (document_type is null or document_type in ('DI','DR')),
@@ -27,7 +31,7 @@ declare
   v_active boolean;
   v_workspace_type text;
 begin
-  if tg_op = 'UPDATE' and old.status <> 'draft' and (
+  if tg_op = 'UPDATE' and old.status is distinct from 'draft' and (
     new.document_type is distinct from old.document_type
     or new.amount_eur is distinct from old.amount_eur
     or new.signature_blueprint_id is distinct from old.signature_blueprint_id
@@ -47,12 +51,12 @@ begin
   if v_org is null or v_org <> new.organization_id or v_type <> new.document_type then
     raise exception 'Document and catalogue model do not match';
   end if;
-  if (v_workspace_type = 'hotel' and v_scope <> 'hotels')
+  if v_workspace_type is null or (v_workspace_type = 'hotel' and v_scope <> 'hotels')
     or (v_workspace_type <> 'hotel' and v_scope <> 'head_office') then
     raise exception 'Catalogue model is not available for this workspace';
   end if;
   -- Do not allow selecting a model that has not been reviewed/activated.
-  if not v_active then
+  if v_active is distinct from true then
     raise exception 'Catalogue model is inactive';
   end if;
   return new;
