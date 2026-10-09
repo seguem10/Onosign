@@ -20,6 +20,7 @@ type DocumentData = {
   storage_path: string;
   workspace_id: string;
   created_at: string;
+  signature_blueprint_id: string | null;
 };
 
 type Recipient = {
@@ -121,6 +122,8 @@ export default function PrepareDocumentPage() {
   const [pdfUrl, setPdfUrl] = useState("");
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [populatingBlueprint, setPopulatingBlueprint] = useState(false);
+  const [blueprintMessage, setBlueprintMessage] = useState("");
 
   const [savingRecipients, setSavingRecipients] =
     useState(false);
@@ -193,7 +196,7 @@ console.trace("TRACE setLoading(true)");
       const { data, error } = await supabase
         .from("documents")
         .select(
-          "id, title, status, storage_path, workspace_id, created_at"
+          "id, title, status, storage_path, workspace_id, created_at, signature_blueprint_id"
         )
         .eq("id", documentId)
         .maybeSingle();
@@ -330,6 +333,32 @@ console.log("1.7 - AFTER setLoading false");
       loadDocument();
     }
   }, [documentId]);
+
+  async function populateAssignedBlueprint() {
+    if (!document?.signature_blueprint_id || document.status !== "draft" ||
+        recipients.length !== 1 || signatureFields.length > 0 || populatingBlueprint) return;
+    setPopulatingBlueprint(true);
+    setBlueprintMessage("");
+    try {
+      const supabase = createClient();
+      const { data: added, error } = await supabase.rpc("onosign_populate_blueprint_recipients", {
+        p_document_id: documentId,
+      });
+      if (error) throw new Error(error.message);
+      const { data: updated, error: readError } = await supabase
+        .from("recipients")
+        .select("id, name, email, role_label, signing_order, status, recipient_type")
+        .eq("document_id", documentId)
+        .order("signing_order", { ascending: true });
+      if (readError || !updated) throw new Error(readError?.message ?? "Destinataires indisponibles");
+      setRecipients(updated as Recipient[]);
+      setBlueprintMessage(`${added} destinataire(s) ajouté(s) au brouillon. Vérifiez les identités et les champs de signature.`);
+    } catch (error) {
+      setBlueprintMessage(error instanceof Error ? error.message : "Impossible d'appliquer le modèle.");
+    } finally {
+      setPopulatingBlueprint(false);
+    }
+  }
 
   /*
    * -------------------------------------------------------
@@ -1027,6 +1056,22 @@ function resizeField(
         </div>
       </header>
 
+      {document.signature_blueprint_id && document.status === "draft" && (
+        <section className="border-b border-amber-200 bg-amber-50 px-6 py-4">
+          <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3">
+            <div className="flex-1 text-sm text-amber-950">
+              <strong>Modèle de signature associé.</strong> La génération des destinataires
+              n'autorise pas l'envoi. Vérifiez le circuit et les signatures avant toute validation.
+            </div>
+            <button type="button" onClick={() => void populateAssignedBlueprint()}
+              disabled={populatingBlueprint || recipients.length !== 1 || signatureFields.length > 0}
+              className="rounded-lg bg-amber-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
+              {populatingBlueprint ? "Application…" : "Appliquer les signataires du modèle"}
+            </button>
+            {blueprintMessage && <p role="status" className="w-full text-sm text-amber-950">{blueprintMessage}</p>}
+          </div>
+        </section>
+      )}
       {/* RECIPIENT BAR */}
       <section className="border-b border-slate-200 bg-white px-6 py-4">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
