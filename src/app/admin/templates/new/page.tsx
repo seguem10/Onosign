@@ -10,13 +10,14 @@ type Step = {
   email: string;
   action: "signer" | "cc";
   required: boolean;
+  authorization_role: "none" | "power_of_attorney";
   condition: "always" | "it" | "above_threshold";
 };
 
 const initialSteps: Step[] = [
-  { id: "requester", role: "Demandeur", name: "", email: "", action: "signer", required: true, condition: "always" },
-  { id: "dg", role: "DG", name: "", email: "", action: "signer", required: false, condition: "always" },
-  { id: "raf", role: "RAF", name: "", email: "", action: "signer", required: false, condition: "always" },
+  { id: "requester", role: "Demandeur", name: "", email: "", action: "signer", required: true, authorization_role: "none", condition: "always" },
+  { id: "dg", role: "DG", name: "", email: "", action: "signer", required: false, authorization_role: "none", condition: "always" },
+  { id: "raf", role: "RAF", name: "", email: "", action: "signer", required: false, authorization_role: "none", condition: "always" },
 ];
 
 export default function NewAdminTemplatePage() {
@@ -46,14 +47,14 @@ export default function NewAdminTemplatePage() {
   function addStep() {
     setSteps((items) => [...items, {
       id: crypto.randomUUID(), role: "", name: "", email: "",
-      action: "signer", required: false, condition: "always",
+      action: "signer", required: false, authorization_role: "none", condition: "always",
     }]);
   }
 
   const validThreshold = threshold.trim() !== "" && Number.isFinite(Number(threshold)) && Number(threshold) > 0 && /^\\d+(?:\\.\\d{1,2})?$/.test(threshold.trim());
   const validRoles = steps.every((step) => step.role.trim().length > 0);
   const validRequester = steps[0]?.id === "requester" && steps[0]?.required && steps[0]?.action === "signer" && steps[0]?.condition === "always" && !steps[0]?.name && !steps[0]?.email;
-  const validConditions = steps.every((step) => (documentType === "DI" || step.condition !== "above_threshold") && (step.action !== "cc" || !step.required));
+  const validConditions = steps.every((step) => (step.authorization_role !== "power_of_attorney" || (documentType === "DI" && step.action === "signer" && step.required && step.id !== "requester" && step.condition !== "it")) &&  (documentType === "DI" || step.condition !== "above_threshold") && (step.action !== "cc" || !step.required));
   const validEmails = steps.every((step) => !step.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(step.email));
   const preview = {
     name: name.trim(),
@@ -83,7 +84,7 @@ export default function NewAdminTemplatePage() {
           steps: steps.map((step, index) => ({
             role: step.role.trim(), name: step.name.trim(), email: step.email.trim(),
             action: step.action, condition: step.condition,
-            required: step.required, is_requester: index === 0,
+            required: step.required, is_requester: index === 0, authorization_role: step.authorization_role,
           })),
         }),
       });
@@ -121,7 +122,7 @@ export default function NewAdminTemplatePage() {
             <select value={documentType} onChange={(e) => {
                 const next = e.target.value as "DI" | "DR";
                 setDocumentType(next);
-                if (next === "DR") setSteps((items) => items.map((step) => step.condition === "above_threshold" ? { ...step, condition: "always" } : step));
+                if (next === "DR") setSteps((items) => items.map((step) => ({...step, authorization_role: "none", condition: step.condition === "above_threshold" ? "always" : step.condition})));
               }}
               className="mt-2 w-full rounded-lg border p-3 font-normal">
               <option value="DI">DI</option><option value="DR">DR</option>
@@ -184,11 +185,22 @@ export default function NewAdminTemplatePage() {
                       placeholder={index === 0 ? "Utilisateur connecté" : "adresse@exemple.com"} className="mt-1 w-full rounded-lg border p-2 disabled:bg-slate-100" />
                   </label>
                   <label className="text-sm">Action
-                    <select disabled={index === 0} value={step.action} onChange={(e) => change(step.id, { action: e.target.value as Step["action"], ...(e.target.value === "cc" ? { required: false } : {}) })}
+                    <select disabled={index === 0} value={step.action} onChange={(e) => change(step.id, { action: e.target.value as Step["action"], ...(e.target.value === "cc" ? { required: false, authorization_role: "none" } : {}) })}
                       className="mt-1 w-full rounded-lg border p-2 disabled:bg-slate-100">
                       <option value="signer">Doit signer</option><option value="cc">Reçoit une copie</option>
                     </select>
                   </label>
+                  {documentType === "DI" && index > 0 && (
+                    <label className="text-sm">Habilitation financière
+                      <select value={step.authorization_role} onChange={(e) => change(step.id, {
+                        authorization_role: e.target.value as Step["authorization_role"],
+                        ...(e.target.value === "power_of_attorney" ? { action: "signer" as const, required: true } : {}),
+                      })} className="mt-1 w-full rounded-lg border p-2">
+                        <option value="none">Aucune</option>
+                        <option value="power_of_attorney">Fondé de pouvoir</option>
+                      </select>
+                    </label>
+                  )}
                   <label className="text-sm">Condition
                     <select disabled={index === 0} value={step.condition} onChange={(e) => change(step.id, { condition: e.target.value as Step["condition"] })}
                       className="mt-1 w-full rounded-lg border p-2 disabled:bg-slate-100">
@@ -199,7 +211,7 @@ export default function NewAdminTemplatePage() {
                   </label>
                   <label className="flex items-center gap-2 self-end pb-2 text-sm">
                     <input type="checkbox" checked={step.required} disabled={index === 0}
-                      onChange={(e) => change(step.id, { required: e.target.checked })} />
+                      onChange={(e) => change(step.id, { required: e.target.checked, ...(!e.target.checked ? { authorization_role: "none" } : {}) })} />
                     Étape obligatoire
                   </label>
                 </div>
