@@ -34,8 +34,9 @@ export async function GET(request: Request) {
   ]);
   if (w.error || b.error || o.error) return failure("Impossible de charger le circuit.", 500);
   if (!w.data || !b.data) return failure("Modèle ou établissement introuvable.", 404);
-  if (w.data.organization_id !== b.data.organization_id ||
-      !admin.some((membership) => membership.organization_id === w.data.organization_id))
+  const workspace = w.data;
+  if (workspace.organization_id !== b.data.organization_id ||
+      !admin.some((membership) => membership.organization_id === workspace.organization_id))
     return failure("Établissement non autorisé.", 403);
   if (!["hotel", "head_office", "head_office_department", "sarh"].includes(w.data.type) ||
       (w.data.type === "hotel" ? "hotels" : "head_office") !== b.data.scope)
