@@ -20,6 +20,14 @@ const initialSteps: Step[] = [
   { id: "raf", role: "RAF", name: "", email: "", action: "signer", required: false, authorization_role: "none", condition: "always" },
 ];
 
+// Circuit transcribed from ONOMO "Payment Request Form - Above 5000 Euros Expenses".
+const paymentRequestSteps: Step[] = [
+  { id: "requester", role: "Enquirer / Demandeur", name: "", email: "", action: "signer", required: true, authorization_role: "none", condition: "always" },
+  { id: "finance", role: "Financial Department / Service financier", name: "", email: "", action: "signer", required: true, authorization_role: "none", condition: "always" },
+  { id: "director1", role: "Director / Directeur 1", name: "", email: "", action: "signer", required: true, authorization_role: "none", condition: "always" },
+  { id: "director2", role: "Director / Directeur 2 (si montant > 20 000 €)", name: "", email: "", action: "signer", required: false, authorization_role: "none", condition: "always" },
+];
+
 export default function NewAdminTemplatePage() {
   const router = useRouter();
   const [name, setName] = useState("Circuit standard");
@@ -29,6 +37,16 @@ export default function NewAdminTemplatePage() {
   const [steps, setSteps] = useState<Step[]>(initialSteps);
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const [sourcePreset, setSourcePreset] = useState(false);
+  function loadPaymentRequestPreset() {
+    setDocumentType("DR");
+    setName("DR - Payment Request Form - Above 5000 Euros");
+    setScope("head_office");
+    setSteps(paymentRequestSteps.map((step) => ({ ...step })));
+    setSourcePreset(true);
+    setNotice("Circuit importé depuis le formulaire ONOMO. La 4e signature est conditionnelle (> 20 000 €) dans le PDF mais la condition DR n'est pas encore automatisée. Modèle brouillon uniquement.");
+  }
 
   function change(id: string, patch: Partial<Step>) {
     setSteps((items) => items.map((step) => step.id === id ? { ...step, ...patch } : step));
@@ -113,6 +131,15 @@ export default function NewAdminTemplatePage() {
           Les modèles créés restent inactifs. Les règles de signature financière ne sont pas encore vérifiées lors de l’envoi : ne pas utiliser ces brouillons pour des signatures réelles.
         </div>
 
+        <section className="mt-6 rounded-2xl border border-sky-200 bg-sky-50 p-5">
+          <h2 className="font-bold text-sky-950">Modèle ONOMO fourni : Payment Request Form</h2>
+          <p className="mt-1 text-sm text-sky-900">Demande de paiement supérieure à 5 000 € : Demandeur → Service financier → Directeur → 2e directeur si montant strictement supérieur à 20 000 €.</p>
+          <button type="button" onClick={loadPaymentRequestPreset}
+            className="mt-3 rounded-lg bg-sky-800 px-4 py-2 text-sm font-semibold text-white">
+            Charger le circuit du formulaire fourni
+          </button>
+          {sourcePreset && <p className="mt-2 text-xs text-amber-900">Attention : le 2e directeur reste facultatif dans ce brouillon. Le seuil DR du formulaire doit être implémenté côté serveur avant activation. Le PDF original n'est pas encore stocké dans l'application.</p>}
+        </section>
         <section className="mt-6 grid gap-4 rounded-2xl border bg-white p-6 md:grid-cols-2">
           <label className="text-sm font-semibold">Nom du modèle
             <input value={name} onChange={(e) => setName(e.target.value)}
