@@ -368,6 +368,47 @@ console.log("1.7 - AFTER setLoading false");
     }
   }
 
+  type BlueprintPreflight = {
+    ready_for_review: boolean;
+    dispatch_authorized: boolean;
+    issues: string[];
+    recipients: number;
+    mapped_recipients: number;
+    required_power_signers: number;
+    actual_power_signers: number;
+    signers_missing_signature_fields: number;
+  };
+  const [preflight, setPreflight] = useState<BlueprintPreflight | null>(null);
+  const [preflightLoading, setPreflightLoading] = useState(false);
+  const [preflightError, setPreflightError] = useState("");
+  const issueLabels: Record<string, string> = {
+    not_draft: "Le document n'est plus en brouillon.",
+    blueprint_inactive: "Le modèle est inactif.",
+    recipient_mapping_incomplete: "Les destinataires ne correspondent pas au modèle.",
+    recipient_already_processed: "Un destinataire a déjà été traité.",
+    duplicate_recipient_email: "Une adresse e-mail apparaît plusieurs fois.",
+    missing_signature_fields: "Certains signataires n'ont pas de champ de signature.",
+    insufficient_power_of_attorney: "Nombre de fondés de pouvoir insuffisant.",
+  };
+  async function checkBlueprintPreflight() {
+    if (!document?.signature_blueprint_id || preflightLoading) return;
+    setPreflightLoading(true);
+    setPreflightError("");
+    setPreflight(null);
+    try {
+      const supabase = createClient();
+      const {data,error} = await supabase.rpc("onosign_blueprint_preflight", {
+        p_document_id: documentId,
+      });
+      if (error) throw new Error(error.message);
+      setPreflight(data as BlueprintPreflight);
+    } catch (error) {
+      setPreflightError(error instanceof Error ? error.message : "Contrôle indisponible");
+    } finally {
+      setPreflightLoading(false);
+    }
+  }
+
   async function populateAssignedBlueprint() {
     if (!document?.signature_blueprint_id || document.status !== "draft" ||
         recipients.length !== 1 || signatureFields.length > 0 || populatingBlueprint) return;
@@ -1128,6 +1169,43 @@ function resizeField(
               {populatingBlueprint ? "Application…" : "Appliquer les signataires du modèle"}
             </button>
             {blueprintMessage && <p role="status" className="w-full text-sm text-amber-950">{blueprintMessage}</p>}
+          </div>
+        </section>
+      )}
+      {document.signature_blueprint_id && (
+        <section className="border-b border-slate-200 bg-white px-6 py-4">
+          <div className="mx-auto max-w-[1500px] space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-slate-900">Contrôle du circuit DI / DR</h2>
+                <p className="text-xs text-slate-500">
+                  Rapport de vérification uniquement. L'envoi reste désactivé.
+                </p>
+              </div>
+              <button type="button" onClick={() => void checkBlueprintPreflight()}
+                disabled={preflightLoading}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-40">
+                {preflightLoading ? "Vérification…" : "Vérifier le circuit"}
+              </button>
+            </div>
+            {preflightError && <p role="alert" className="text-sm text-red-700">{preflightError}</p>}
+            {preflight && (
+              <div role="status" className={`rounded-lg border p-3 text-sm ${preflight.ready_for_review
+                ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                : "border-amber-300 bg-amber-50 text-amber-950"}`}>
+                <p className="font-semibold">{preflight.ready_for_review
+                  ? "Circuit prêt pour revue — envoi toujours bloqué"
+                  : "Des corrections sont nécessaires avant la revue"}</p>
+                <p className="mt-1">Destinataires : {preflight.recipients} · Fondés de pouvoir : {preflight.actual_power_signers}/{preflight.required_power_signers}</p>
+                {preflight.issues.length > 0 && (
+                  <ul className="mt-2 list-inside list-disc">
+                    {preflight.issues.map((issue) => (
+                      <li key={issue}>{issueLabels[issue] ?? issue}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         </section>
       )}
