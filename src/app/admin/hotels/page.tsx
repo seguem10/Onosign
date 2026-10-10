@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
+type DirectoryUser = { user_id: string; full_name: string | null };
+
 type Hotel = {
   workspace_id: string;
   hotel_name: string;
@@ -17,6 +19,12 @@ export default function HotelOnboardingPage() {
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [directory, setDirectory] = useState<DirectoryUser[]>([]);
+  const [selectedHotel, setSelectedHotel] = useState("");
+  const [selectedUser, setSelectedUser] = useState("");
+  const [selectedRole, setSelectedRole] = useState<"member" | "admin">("member");
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -28,10 +36,16 @@ export default function HotelOnboardingPage() {
         router.replace("/");
         return;
       }
-      const { data, error: queryError } = await supabase.rpc("onosign_hotel_onboarding_status");
+      const [{ data, error: queryError }, { data: users, error: directoryError }] = await Promise.all([
+        supabase.rpc("onosign_hotel_onboarding_status"),
+        supabase.rpc("onosign_hotel_user_directory"),
+      ]);
       if (!active) return;
-      if (queryError) setError(queryError.message);
-      else setHotels((data ?? []) as Hotel[]);
+      if (queryError || directoryError) setError(queryError?.message ?? directoryError?.message ?? "Erreur");
+      else {
+        setHotels((data ?? []) as Hotel[]);
+        setDirectory((users ?? []) as DirectoryUser[]);
+      }
       setLoading(false);
     }
     void load();
@@ -39,6 +53,24 @@ export default function HotelOnboardingPage() {
   }, [router]);
 
   const withoutMembers = hotels.filter((hotel) => !hotel.has_members).length;
+
+  async function assignMember(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedHotel || !selectedUser || saving) return;
+    setSaving(true);
+    setNotice("");
+    const supabase = createClient();
+    const { error: assignError } = await supabase.rpc("onosign_assign_hotel_member", {
+      p_hotel: selectedHotel, p_member: selectedUser, p_role: selectedRole,
+    });
+    if (assignError) setNotice(assignError.message);
+    else {
+      setNotice("Collaborateur affecté à l’hôtel.");
+      const { data } = await supabase.rpc("onosign_hotel_onboarding_status");
+      if (data) setHotels(data as Hotel[]);
+    }
+    setSaving(false);
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-900">
@@ -60,6 +92,29 @@ export default function HotelOnboardingPage() {
               <div className="rounded-xl border bg-white p-5"><div className="text-sm text-slate-500">Sans collaborateurs</div><div className="text-3xl font-bold text-amber-700">{withoutMembers}</div></div>
               <div className="rounded-xl border bg-white p-5"><div className="text-sm text-slate-500">Avec collaborateurs</div><div className="text-3xl font-bold">{hotels.length - withoutMembers}</div></div>
             </div>
+            <form onSubmit={assignMember} className="mt-8 grid gap-4 rounded-xl border bg-white p-5 md:grid-cols-4">
+              <label className="text-sm font-semibold">Hôtel
+                <select required value={selectedHotel} onChange={(e) => setSelectedHotel(e.target.value)} className="mt-2 w-full rounded-lg border p-2 font-normal">
+                  <option value="">Sélectionner…</option>
+                  {hotels.map((hotel) => <option key={hotel.workspace_id} value={hotel.workspace_id}>{hotel.hotel_name}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-semibold">Compte existant
+                <select required value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)} className="mt-2 w-full rounded-lg border p-2 font-normal">
+                  <option value="">Sélectionner…</option>
+                  {directory.map((user) => <option key={user.user_id} value={user.user_id}>{user.full_name || user.user_id}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-semibold">Accès à l'hôtel
+                <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as "member" | "admin")} className="mt-2 w-full rounded-lg border p-2 font-normal">
+                  <option value="member">Collaborateur</option>
+                  <option value="admin">Administrateur hôtel</option>
+                </select>
+              </label>
+              <button type="submit" disabled={saving || !selectedHotel || !selectedUser} className="self-end rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Enregistrement…" : "Affecter"}</button>
+              {notice && <p role="status" className="md:col-span-4 text-sm">{notice}</p>}
+              <p className="text-xs text-slate-500 md:col-span-4">Uniquement les comptes déjà membres de l'organisation. Les rôles DG/RAF et les droits de signature sont configurés séparément.</p>
+            </form>
             {hotels.length === 0 && <p className="mt-6 rounded-xl border bg-white p-5">Aucun hôtel visible. Vérifiez votre rôle administrateur.</p>}
             <div className="mt-8 overflow-x-auto rounded-xl border bg-white">
               <table className="w-full text-left text-sm">
