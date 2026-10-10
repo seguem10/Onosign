@@ -11,7 +11,7 @@ begin
  end if;
  insert into public.signature_blueprints(organization_id,name,document_type,scope,is_active,financial_threshold_eur,created_by)
  values(v_org,'DI - Circuit central ONOMO - Hôtels','DI','hotels',false,20000,v_owner)
- on conflict (organization_id,name) do nothing;
+ on conflict do nothing;
  select id into v_di from public.signature_blueprints where organization_id=v_org and name='DI - Circuit central ONOMO - Hôtels' and document_type='DI' and scope='hotels' and is_active=false;
  if v_di is null then raise exception 'DI blueprint conflict'; end if;
  if not exists(select 1 from public.signature_blueprint_steps where blueprint_id=v_di) then
@@ -23,7 +23,7 @@ begin
  end if;
  insert into public.signature_blueprints(organization_id,name,document_type,scope,is_active,created_by)
  values(v_org,'DR - Payment Request Form - Tous montants','DR','hotels',false,v_owner)
- on conflict (organization_id,name) do nothing;
+ on conflict do nothing;
  select id into v_dr from public.signature_blueprints where organization_id=v_org and name='DR - Payment Request Form - Tous montants' and document_type='DR' and scope='hotels' and is_active=false;
  if v_dr is null then raise exception 'DR blueprint conflict'; end if;
  if not exists(select 1 from public.signature_blueprint_steps where blueprint_id=v_dr) then
