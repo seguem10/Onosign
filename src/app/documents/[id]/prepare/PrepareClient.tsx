@@ -118,6 +118,25 @@ export default function PrepareDocumentPage() {
   const [document, setDocument] =
     useState<DocumentData | null>(null);
 
+  type AuditEvent = { id: number; event_type: string; previous_status: string | null; next_status: string | null; occurred_at: string };
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [auditError, setAuditError] = useState("");
+  useEffect(() => {
+    if (!documentId) return;
+    let active = true;
+    const supabase = createClient();
+    void supabase.from("onosign_document_audit")
+      .select("id,event_type,previous_status,next_status,occurred_at")
+      .eq("document_id", documentId)
+      .order("occurred_at", { ascending: false })
+      .limit(30)
+      .then(({data,error}) => {
+        if (!active) return;
+        if (error) setAuditError("Historique indisponible.");
+        else setAuditEvents((data ?? []) as AuditEvent[]);
+      });
+    return () => { active = false; };
+  }, [documentId]);
   const [workspaceName, setWorkspaceName] = useState("");
   const [pdfUrl, setPdfUrl] = useState("");
 
@@ -1837,6 +1856,29 @@ disabled={fieldDisabled}
                 Saved in OnoSign
               </p>
             </div>
+
+            <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-bold text-slate-900">Historique technique</h3>
+              <p className="mt-1 text-xs text-slate-500">Événements depuis l’activation du journal. Ne constitue pas une preuve de signature électronique.</p>
+              {auditError && <p role="alert" className="mt-2 text-xs text-amber-700">{auditError}</p>}
+              {!auditError && auditEvents.length === 0 && <p className="mt-2 text-xs text-slate-500">Aucun événement enregistré pour ce document.</p>}
+              <ol className="mt-3 space-y-2">
+                {auditEvents.map((event) => (
+                  <li key={event.id} className="border-l-2 border-emerald-200 pl-3 text-xs text-slate-700">
+                    <span className="font-semibold">{({
+                      document_created: "Document créé",
+                      document_status_changed: "Statut du document modifié",
+                      recipient_added: "Destinataire ajouté",
+                      recipient_status_changed: "Statut du destinataire modifié",
+                    } as Record<string,string>)[event.event_type] ?? event.event_type}</span>
+                    <div className="text-slate-500">{new Date(event.occurred_at).toLocaleString("fr-FR")}</div>
+                    {event.previous_status !== event.next_status && event.previous_status && (
+                      <div>{event.previous_status} → {event.next_status ?? "—"}</div>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </section>
 
             {pdfUrl && (
               <a
