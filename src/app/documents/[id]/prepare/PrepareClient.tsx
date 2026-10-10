@@ -108,7 +108,7 @@ const FIELD_CONFIG: Record<
 };
 
 export default function PrepareDocumentPage() {
- console.log("RENDER PrepareDocumentPage");
+
   const params = useParams();
   const router = useRouter();
 
@@ -391,6 +391,10 @@ console.log("1.7 - AFTER setLoading false");
     missing_signature_fields: "Certains signataires n'ont pas de champ de signature.",
     insufficient_power_of_attorney: "Nombre de fondés de pouvoir insuffisant.",
     payment_request_second_director_required: "Deux signatures de directeurs sont obligatoires au-delà de 20 000 €.",
+    missing_or_invalid_amount: "Le montant du document doit être renseigné et positif ou nul.",
+    recipient_step_mismatch: "Un destinataire ne correspond plus à son étape du modèle.",
+    missing_required_workflow_step: "Une étape obligatoire du circuit est absente.",
+    invalid_requester_order: "Le demandeur doit être le seul signataire en première position.",
   };
   async function checkBlueprintPreflight() {
     if (!document?.signature_blueprint_id || preflightLoading) return;
@@ -1125,9 +1129,11 @@ function resizeField(
 
             <button
               type="button"
-              className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+              disabled
+              title="Envoi désactivé : la validation sécurisée du circuit de signature reste à développer."
+              className="cursor-not-allowed rounded-xl bg-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700"
             >
-              Save & Continue →
+              Envoi indisponible — brouillon uniquement
             </button>
           </div>
         </div>
