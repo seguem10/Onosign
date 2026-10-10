@@ -395,6 +395,10 @@ console.log("1.7 - AFTER setLoading false");
     recipient_step_mismatch: "Un destinataire ne correspond plus à son étape du modèle.",
     missing_required_workflow_step: "Une étape obligatoire du circuit est absente.",
     invalid_requester_order: "Le demandeur doit être le seul signataire en première position.",
+    unexpected_workflow_step: "Un signataire conditionnel est présent alors que le montant ne le prévoit pas.",
+    requester_mapping_invalid: "Le demandeur initial n’est pas correctement identifié.",
+    duplicate_signing_order: "Plusieurs destinataires occupent la même position de signature.",
+    invalid_signature_field: "Un champ PDF est invalide ou associé à un mauvais destinataire.",
   };
   async function checkBlueprintPreflight() {
     if (!document?.signature_blueprint_id || preflightLoading) return;
