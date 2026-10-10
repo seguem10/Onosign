@@ -120,7 +120,19 @@ setUserEmail(user.email || "");
           .maybeSingle();
 
         if (workspaceError || !workspaceData) {
-          setErrorMessage("You do not have access to this workspace.");
+          setErrorMessage("Espace de travail introuvable.");
+          setLoading(false);
+          return;
+        }
+        // The organization membership alone must not grant access to every hotel.
+        const { data: workspaceMembership, error: memberError } = await supabase
+          .from("workspace_members")
+          .select("workspace_id")
+          .eq("workspace_id", workspaceData.id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (memberError || !workspaceMembership) {
+          setErrorMessage("Vous n'êtes pas membre de cet établissement. Contactez l'administrateur.");
           setLoading(false);
           return;
         }
@@ -182,7 +194,11 @@ setWorkflowTemplates(templatesData ?? []);
       file.name.toLowerCase().endsWith(".pdf");
 
     if (!isPdf) {
-      setErrorMessage("Only PDF files are allowed.");
+      setErrorMessage("Seuls les documents PDF sont acceptés.");
+      return;
+    }
+    if (file.size === 0 || file.size > 20 * 1024 * 1024) {
+      setErrorMessage("Le PDF doit être non vide et ne pas dépasser 20 Mo.");
       return;
     }
 
@@ -193,6 +209,15 @@ setWorkflowTemplates(templatesData ?? []);
     let uploadedPath = "";
 
     try {
+      // Identify the actual PDF bytes instead of trusting a user-provided extension.
+      const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+      if (String.fromCharCode(...header) !== "%PDF-") {
+        throw new Error("Le fichier sélectionné ne contient pas un en-tête PDF valide.");
+      }
+      const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+      const originalSha256 = Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
       const safeFileName = file.name
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
@@ -226,6 +251,7 @@ setWorkflowTemplates(templatesData ?? []);
           status: "draft",
           document_type: documentType,
           amount_eur: Number(amountEur.replace(",", ".")),
+          original_sha256: originalSha256,
         })
         .select("id")
         .single();
