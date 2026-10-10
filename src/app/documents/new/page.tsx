@@ -461,7 +461,7 @@ if (creatorRecipientError) {
             </div>
           </section>
 
-          {documentType === "DI" && (
+          {(documentType === "DI" || documentType === "DR") && (
             <div className="mt-5">
               <label htmlFor="amount-eur" className="mb-2 block text-sm font-semibold">
                 Montant du document (€)
@@ -609,7 +609,7 @@ if (creatorRecipientError) {
                 submitting ||
                 !workspace ||
                 !title.trim() ||
-                !file || (documentType === "DI" && (amountEur.trim() === "" || !/^\\d+(?:[.,]\\d{1,2})?$/.test(amountEur.trim())))
+                !file || ((documentType === "DI" || documentType === "DR") && (amountEur.trim() === "" || !/^\\d+(?:[.,]\\d{1,2})?$/.test(amountEur.trim())))
               }
               className="rounded-xl bg-emerald-600 px-7 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
