@@ -390,7 +390,6 @@ console.log("1.7 - AFTER setLoading false");
     duplicate_recipient_email: "Une adresse e-mail apparaît plusieurs fois.",
     missing_signature_fields: "Certains signataires n'ont pas de champ de signature.",
     insufficient_power_of_attorney: "Nombre de fondés de pouvoir insuffisant.",
-    payment_request_requires_above_5000: "Ce formulaire concerne uniquement les dépenses strictement supérieures à 5 000 €.",
     payment_request_second_director_required: "Deux signatures de directeurs sont obligatoires au-delà de 20 000 €.",
   };
   async function checkBlueprintPreflight() {
