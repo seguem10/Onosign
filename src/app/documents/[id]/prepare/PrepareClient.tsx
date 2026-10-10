@@ -381,6 +381,7 @@ console.log("1.7 - AFTER setLoading false");
   const [preflight, setPreflight] = useState<BlueprintPreflight | null>(null);
   const [preflightLoading, setPreflightLoading] = useState(false);
   const [preflightError, setPreflightError] = useState("");
+  useEffect(() => { setPreflight(null); }, [recipients, signatureFields, document?.signature_blueprint_id]);
   const issueLabels: Record<string, string> = {
     not_draft: "Le document n'est plus en brouillon.",
     blueprint_inactive: "Le modèle est inactif.",
