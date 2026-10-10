@@ -10,7 +10,7 @@ type Blueprint = {
   signature_blueprint_steps: Array<{
     id: string; step_order: number; role_label: string;
     default_name: string | null; default_email: string | null;
-    recipient_type: string; is_required: boolean; condition_type: string;
+    recipient_type: string; is_required: boolean; is_requester: boolean; condition_type: string;
   }>;
 };
 type Override = {
@@ -42,7 +42,7 @@ export default function HotelWorkflowPreview() {
         supabase.from("workspaces").select("id,name,type").order("name"),
         supabase.from("signature_blueprints")
           .select(`id,name,scope,document_type,
-            signature_blueprint_steps(id,step_order,role_label,default_name,default_email,recipient_type,is_required,condition_type)`)
+            signature_blueprint_steps(id,step_order,role_label,default_name,default_email,recipient_type,is_required,is_requester,condition_type)`)
           .order("name"),
         supabase.from("signature_blueprint_overrides")
           .select(`id,blueprint_id,workspace_id,is_enabled,
@@ -86,6 +86,13 @@ export default function HotelWorkflowPreview() {
       };
     });
 
+  const configured = steps.filter((step) => !step.is_requester && step.enabled);
+  const incomplete = configured.filter((step) => !step.name?.trim() || !step.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(step.email));
+  const duplicateEmails = configured.map((step) => step.email?.trim().toLowerCase()).filter(Boolean);
+  const duplicates = new Set(duplicateEmails).size !== duplicateEmails.length;
+  const mandatoryDisabled = steps.some((step) => step.is_required && !step.enabled);
+  const configurationReady = !!selectedBlueprint && configured.length > 0 && incomplete.length === 0 && !duplicates && !mandatoryDisabled && override?.is_enabled !== false;
+
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-900">
       <div className="mx-auto max-w-5xl">
@@ -124,6 +131,14 @@ export default function HotelWorkflowPreview() {
             ) : (
               <section className="mt-6 rounded-2xl border bg-white p-6">
                 <h2 className="text-xl font-bold">{selectedBlueprint.name}</h2>
+                <div className={`mt-4 rounded-xl border p-4 text-sm ${configurationReady ? "border-green-200 bg-green-50 text-green-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                  <strong>{configurationReady ? "Coordonnées renseignées" : "Configuration des signataires incomplète"}</strong>
+                  <p className="mt-1">Ce contrôle est indicatif : il ne valide ni les montants ni l’autorisation d’envoi.</p>
+                  {incomplete.length > 0 && <p>{incomplete.length} signataire(s) avec nom ou e-mail manquant / invalide.</p>}
+                  {duplicates && <p>Des signataires partagent la même adresse e-mail.</p>}
+                  {mandatoryDisabled && <p>Une étape obligatoire est désactivée.</p>}
+                  {override?.is_enabled === false && <p>Ce modèle est désactivé pour cet établissement.</p>}
+                </div>
                 <p className="mt-2 text-sm text-slate-600">
                   {override ? (override.is_enabled ? "Personnalisation existante" : "Modèle désactivé pour cet établissement")
                     : "Aucune personnalisation : valeurs du modèle central"}
@@ -143,7 +158,7 @@ export default function HotelWorkflowPreview() {
                         </span>
                       </div>
                       <p className="mt-2 text-sm text-slate-600">
-                        {step.name || "Nom à compléter"} · {step.email || "E-mail à compléter"}
+                        {step.is_requester ? "Identité du demandeur : compte connecté lors de la création du document" : `${step.name || "Nom à compléter"} · ${step.email || "E-mail à compléter"}`}
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
                         {step.recipient_type} · {step.is_required ? "Obligatoire" : "Facultatif"} · {step.condition_type}
