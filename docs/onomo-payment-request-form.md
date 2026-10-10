@@ -3,7 +3,7 @@
 Source supplied by the user on 2026-10-10. This document is **not** a generic DI form.
 
 ## Eligibility and amount boundaries
-- Heading: "PAYMENT REQUEST FORM - ABOVE 5000 EUROS EXPENSES" (strictly **greater than €5,000**).
+- The source PDF heading says "PAYMENT REQUEST FORM - ABOVE 5000 EUROS EXPENSES". ONOMO explicitly decided on 2026-10-10 to apply the same workflow to **all payment amounts**, including €5,000 and below.
 - Director double signature: "mandatory for all expenses above 20k€" (strictly **greater than €20,000**).
 - At exactly €20,000, the source does **not** mandate the second director.
 - These rules are specific to this source and must not be conflated with the existing DI >= €20,000 power-of-attorney rule.
@@ -27,7 +27,7 @@ Source supplied by the user on 2026-10-10. This document is **not** a generic DI
 - [x] Admin preset to populate the chronological signer list (inactive draft).
 - [ ] Store the user-supplied PDF as a protected reusable template asset.
 - [ ] Bind each form field to structured data and render onto PDF.
-- [ ] Enforce >€5,000 applicability and strict >€20,000 double-director rule server-side.
+- [x] Allow all payment amounts and enforce strict >€20,000 double-director rule during recipient generation and preflight.
 - [ ] Apply per-hotel signer identities and controlled exceptions.
 - [ ] Require supporting attachments according to business rules.
 - [ ] Implement secure dispatch and sequential signatures.
