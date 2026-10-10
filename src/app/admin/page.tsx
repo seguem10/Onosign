@@ -4,6 +4,12 @@ import { useRouter } from "next/navigation";
 
 const modules = [
   {
+    title: "Affectation des hôtels",
+    description: "Suivre les 22 établissements ONOMO et affecter les comptes existants.",
+    icon: "🏢",
+    href: "/admin/hotels",
+  },
+  {
     title: "Hôtels & Siège",
     description:
       "Créer et gérer les hôtels, le siège et les départements.",
