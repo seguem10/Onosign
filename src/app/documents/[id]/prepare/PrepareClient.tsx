@@ -448,6 +448,10 @@ console.log("1.7 - AFTER setLoading false");
    */
   async function addSigner() {
     setRecipientMessage("");
+    if (!document || document.status !== "draft" || document.signature_blueprint_id) {
+      setRecipientMessage("Les signataires des modèles DI/DR sont gérés par le circuit central. Modification manuelle indisponible.");
+      return;
+    }
 
     const name = newSigner.name.trim();
 
@@ -1302,12 +1306,14 @@ function resizeField(
 
             <button
               type="button"
+              disabled={document.status !== "draft" || !!document.signature_blueprint_id}
+              title={document.signature_blueprint_id ? "Les destinataires du modèle sont protégés." : undefined}
               onClick={() =>
                 setShowAddSigner(
                   !showAddSigner
                 )
               }
-              className="rounded-xl border border-dashed border-emerald-400 px-4 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
+              className="rounded-xl border border-dashed border-emerald-400 px-4 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               + Add signer
             </button>
@@ -1315,7 +1321,7 @@ function resizeField(
         </div>
 
         {/* ADD SIGNER FORM */}
-        {showAddSigner && (
+        {showAddSigner && document.status === "draft" && !document.signature_blueprint_id && (
           <div className="mx-auto mt-4 max-w-[1500px] rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
             <h3 className="font-bold text-slate-900">
               Add signer
