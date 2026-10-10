@@ -76,7 +76,8 @@ export default function HotelOnboardingPage() {
             </div>
             <p className="mt-5 text-sm text-slate-500">
               Étape suivante : identifier les responsables de chaque hôtel, créer ou inviter leurs comptes,
-              puis leur attribuer explicitement les droits nécessaires.
+              puis leur attribuer explicitement les droits nécessaires. Les rôles de signature DI / DR
+              sont configurés séparément des rôles d’accès aux espaces.
             </p>
           </>
         )}
