@@ -144,7 +144,7 @@ export default function AdminTemplatesPage() {
                         Seuil DI : {item.financial_threshold_eur.toLocaleString("fr-FR")} €
                       </p>
                     )}
-                    <button type="button" onClick={() => router.push(`/admin/templates/${item.id}/workspaces`)} className="mt-4 rounded-lg border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">Voir les hôtels et signataires →</button>
+                    <button type="button" onClick={() => router.push("/admin/templates/workspaces")} className="mt-4 rounded-lg border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">Voir les hôtels et signataires →</button>
                     <ol className="mt-4 space-y-2">
                       {[...(item.signature_blueprint_steps ?? [])]
                         .sort((a, b) => a.step_order - b.step_order)
