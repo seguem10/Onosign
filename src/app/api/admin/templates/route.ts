@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 type StepInput = {
   role: string; name: string; email: string;
   action: "signer" | "cc";
-  condition: "always" | "it" | "above_threshold";
+  condition: "always" | "it" | "above_threshold" | "above_20k_strict";
   required: boolean; is_requester: boolean;
   authorization_role: "none" | "power_of_attorney";
 };
@@ -57,12 +57,14 @@ export async function POST(request: Request) {
           typeof step.email !== "string" || step.email.length > 254 ||
           (step.email.trim() && !emailPattern.test(step.email.trim())) ||
           (step.action !== "signer" && step.action !== "cc") ||
-          !["always", "it", "above_threshold"].includes(String(step.condition)) ||
+          !["always", "it", "above_threshold", "above_20k_strict"].includes(String(step.condition)) ||
           typeof step.required !== "boolean" || typeof step.is_requester !== "boolean" ||
           !["none","power_of_attorney"].includes(String(step.authorization_role ?? "none")))
         return fail(`Étape ${index + 1} invalide.`, 400);
       if (step.condition === "above_threshold" && type !== "DI")
         return fail("Condition financière réservée aux DI.", 400);
+      if (step.condition === "above_20k_strict" && (type !== "DR" || step.action !== "signer" || !step.required || index === 0))
+        return fail("Le deuxième directeur conditionnel doit être un signataire DR obligatoire.", 400);
       if (step.is_requester !== (index === 0))
         return fail("Le demandeur doit être la première et unique étape demandeur.", 400);
       if (index === 0 && (!step.required || step.action !== "signer" || step.condition !== "always" || step.name || step.email))
