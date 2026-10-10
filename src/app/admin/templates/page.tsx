@@ -35,6 +35,8 @@ type BlueprintRow = {
     role_label: string;
     recipient_type: string;
     is_required: boolean;
+    condition_type: string;
+    authorization_role: string;
   }[];
 };
 
@@ -69,7 +71,7 @@ export default function AdminTemplatesPage() {
       const { data: blueprintData, error: blueprintError } = await supabase
         .from("signature_blueprints")
         .select(`id, name, document_type, scope, is_active, financial_threshold_eur,
-          signature_blueprint_steps(id, step_order, role_label, recipient_type, is_required)`)
+          signature_blueprint_steps(id, step_order, role_label, recipient_type, is_required, condition_type, authorization_role)`)
         .order("name");
       if (!active) return;
       if (queryError || blueprintError) {
@@ -98,6 +100,10 @@ export default function AdminTemplatesPage() {
             <p className="mt-2 text-slate-600">Consultez les circuits existants et leurs signataires, par établissement.</p>
           </div>
           <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={() => router.push("/admin/hotels")}
+            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+            Comptes des hôtels
+          </button>
           <button type="button" onClick={() => router.push("/admin/templates/workspaces")}
             className="rounded-xl border border-emerald-600 px-5 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
             Aperçu par hôtel
@@ -128,7 +134,7 @@ export default function AdminTemplatesPage() {
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
                         {item.scope === "hotels" ? "Hôtels" : "Siège"}
                       </span>
-                      <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-800">
+                      <span className={`rounded-full px-3 py-1 ${item.is_active ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-800"}`}>
                         {item.is_active ? "Actif" : "Brouillon inactif"}
                       </span>
                     </div>
@@ -146,7 +152,10 @@ export default function AdminTemplatesPage() {
                           <li key={step.id} className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
                             {step.step_order}. {step.role_label}
                             <span className="ml-2 text-xs text-slate-500">
-                              {step.is_required ? "Obligatoire" : "Facultatif"} · {step.recipient_type}
+                              {step.is_required ? "Obligatoire" : "Conditionnel / facultatif"} · {step.recipient_type}
+                              {step.authorization_role === "power_of_attorney" ? " · Fondé de pouvoir" : ""}
+                              {step.condition_type === "above_threshold" ? " · DI ≥ seuil" : ""}
+                              {step.condition_type === "above_20k_strict" ? " · DR > 20 000 €" : ""}
                             </span>
                           </li>
                         ))}
