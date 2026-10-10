@@ -167,8 +167,8 @@ setWorkflowTemplates(templatesData ?? []);
       return;
     }
 
-    if (documentType === "DI" && (amountEur.trim() === "" || !Number.isFinite(Number(amountEur.replace(",", "."))) || Number(amountEur.replace(",", ".")) < 0 || !/^\\d+(?:[.,]\\d{1,2})?$/.test(amountEur.trim()))) {
-      setErrorMessage("Saisissez un montant DI valide en euros (2 décimales maximum).");
+    if ((documentType === "DI" || documentType === "DR") && (amountEur.trim() === "" || !Number.isFinite(Number(amountEur.replace(",", "."))) || Number(amountEur.replace(",", ".")) < 0 || !/^\\d+(?:[.,]\\d{1,2})?$/.test(amountEur.trim()))) {
+      setErrorMessage("Saisissez un montant valide en euros (2 décimales maximum).");
       return;
     }
 
@@ -225,7 +225,7 @@ setWorkflowTemplates(templatesData ?? []);
           storage_path: uploadedPath,
           status: "draft",
           document_type: documentType,
-          amount_eur: documentType === "DI" ? Number(amountEur.replace(",", ".")) : null,
+          amount_eur: Number(amountEur.replace(",", ".")),
         })
         .select("id")
         .single();
@@ -464,7 +464,7 @@ if (creatorRecipientError) {
           {documentType === "DI" && (
             <div className="mt-5">
               <label htmlFor="amount-eur" className="mb-2 block text-sm font-semibold">
-                Montant de la DI (€)
+                Montant du document (€)
               </label>
               <input id="amount-eur" inputMode="decimal" type="text"
                 value={amountEur} onChange={(event) => setAmountEur(event.target.value)}
