@@ -48,11 +48,12 @@ export default function BlueprintWorkspacePage() {
       if (failure) setError(failure.message);
       else if (!model.data) setError("Modèle introuvable ou accès refusé.");
       else {
-        setBlueprint(model.data as Blueprint);
-        const scopeTypes = model.data.scope === "hotels"
+        const loadedModel = model.data as Blueprint;
+        setBlueprint(loadedModel);
+        const scopeTypes = loadedModel.scope === "hotels"
           ? ["hotel"] : ["head_office", "head_office_department"];
         const allowed = ((ws.data ?? []) as Workspace[]).filter(
-          (w) => w.organization_id === model.data.organization_id && scopeTypes.includes(w.type)
+          (w) => w.organization_id === loadedModel.organization_id && scopeTypes.includes(w.type)
         );
         setWorkspaces(allowed);
         setSelectedWorkspace(allowed[0]?.id ?? "");
