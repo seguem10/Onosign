@@ -132,7 +132,7 @@ export default function HotelWorkflowPreview() {
               <section className="mt-6 rounded-2xl border bg-white p-6">
                 <h2 className="text-xl font-bold">{selectedBlueprint.name}</h2>
                 <div className={`mt-4 rounded-xl border p-4 text-sm ${configurationReady ? "border-green-200 bg-green-50 text-green-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
-                  <strong>{configurationReady ? "Coordonnées renseignées" : "Configuration des signataires incomplète"}</strong>
+                  <strong>{configurationReady ? "Coordonnées renseignées (contrôle indicatif)" : "Configuration des signataires incomplète"}</strong>
                   <p className="mt-1">Ce contrôle est indicatif : il ne valide ni les montants ni l’autorisation d’envoi.</p>
                   {incomplete.length > 0 && <p>{incomplete.length} signataire(s) avec nom ou e-mail manquant / invalide.</p>}
                   {duplicates && <p>Des signataires partagent la même adresse e-mail.</p>}
