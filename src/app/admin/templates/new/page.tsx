@@ -42,7 +42,7 @@ export default function NewAdminTemplatePage() {
   function loadPaymentRequestPreset() {
     setDocumentType("DR");
     setName("DR - Payment Request Form - Tous montants");
-    setScope("head_office");
+    setScope("hotels");
     setSteps(paymentRequestSteps.map((step) => ({ ...step })));
     setSourcePreset(true);
     setNotice("Circuit importé depuis le formulaire ONOMO. La 4e signature est conditionnelle (strictement > 20 000 €). Modèle brouillon : vérifier les identités des signataires et tester avant toute activation.");
