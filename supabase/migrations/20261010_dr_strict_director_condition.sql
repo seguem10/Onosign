@@ -23,7 +23,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists onosign_validate_blueprint_step_condition_trigger
   on public.signature_blueprint_steps;
