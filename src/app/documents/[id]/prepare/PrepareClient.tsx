@@ -139,6 +139,26 @@ export default function PrepareDocumentPage() {
   }, [documentId]);
   const [workspaceName, setWorkspaceName] = useState("");
   const [pdfUrl, setPdfUrl] = useState("");
+  const [integrityChecking, setIntegrityChecking] = useState(false);
+  const [integrityResult, setIntegrityResult] = useState("");
+  async function verifyOriginalPdf() {
+    if (integrityChecking) return;
+    setIntegrityChecking(true);
+    setIntegrityResult("");
+    try {
+      const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/integrity`, {
+        method: "GET",
+        cache: "no-store",
+      });
+      const data: { verified?: boolean; message?: string } = await response.json();
+      setIntegrityResult(data.message ?? "Résultat de vérification indisponible.");
+    } catch {
+      setIntegrityResult("Impossible de contacter le service de vérification.");
+    } finally {
+      setIntegrityChecking(false);
+    }
+  }
+
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [populatingBlueprint, setPopulatingBlueprint] = useState(false);
@@ -1856,6 +1876,17 @@ disabled={fieldDisabled}
                 Saved in OnoSign
               </p>
             </div>
+
+            <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-bold text-slate-900">Intégrité du PDF original</h3>
+              <p className="mt-1 text-xs text-slate-500">Compare le PDF conservé sur le serveur à son empreinte SHA-256 initiale. Ce contrôle ne remplace pas une signature électronique.</p>
+              <button type="button" disabled={integrityChecking}
+                onClick={() => void verifyOriginalPdf()}
+                className="mt-3 w-full rounded-lg border border-emerald-500 px-3 py-2 text-sm font-semibold text-emerald-800 disabled:opacity-50">
+                {integrityChecking ? "Vérification…" : "Vérifier le PDF original"}
+              </button>
+              {integrityResult && <p role="status" className="mt-2 text-xs text-slate-700">{integrityResult}</p>}
+            </section>
 
             <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
               <h3 className="text-sm font-bold text-slate-900">Historique technique</h3>
