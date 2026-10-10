@@ -41,7 +41,7 @@ export default function NewAdminTemplatePage() {
   const [sourcePreset, setSourcePreset] = useState(false);
   function loadPaymentRequestPreset() {
     setDocumentType("DR");
-    setName("DR - Payment Request Form - Above 5000 Euros");
+    setName("DR - Payment Request Form - Tous montants");
     setScope("head_office");
     setSteps(paymentRequestSteps.map((step) => ({ ...step })));
     setSourcePreset(true);
@@ -133,7 +133,7 @@ export default function NewAdminTemplatePage() {
 
         <section className="mt-6 rounded-2xl border border-sky-200 bg-sky-50 p-5">
           <h2 className="font-bold text-sky-950">Modèle ONOMO fourni : Payment Request Form</h2>
-          <p className="mt-1 text-sm text-sky-900">Demande de paiement supérieure à 5 000 € : Demandeur → Service financier → Directeur → 2e directeur si montant strictement supérieur à 20 000 €.</p>
+          <p className="mt-1 text-sm text-sky-900">Demande de paiement pour tous les montants : Demandeur → Service financier → Directeur → 2e directeur si montant strictement supérieur à 20 000 €.</p>
           <button type="button" onClick={loadPaymentRequestPreset}
             className="mt-3 rounded-lg bg-sky-800 px-4 py-2 text-sm font-semibold text-white">
             Charger le circuit du formulaire fourni
