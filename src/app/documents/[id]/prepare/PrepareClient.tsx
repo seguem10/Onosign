@@ -544,6 +544,10 @@ console.log("1.7 - AFTER setLoading false");
 ) {
   event.preventDefault();
   event.stopPropagation();
+  if (document?.status !== "draft") {
+    setFieldMessage("Les champs ne peuvent être modifiés que dans un brouillon.");
+    return;
+  }
 
   if (!selectedRecipientId) {
     setFieldMessage(
@@ -994,6 +998,10 @@ function resizeField(
   async function deleteField(
     fieldId: string
   ) {
+    if (document?.status !== "draft") {
+      setFieldMessage("Suppression impossible : le document n’est plus en brouillon.");
+      return;
+    }
     const supabase = createClient();
 
     const { error } = await supabase
