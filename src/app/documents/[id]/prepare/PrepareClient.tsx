@@ -462,10 +462,15 @@ console.log("1.7 - AFTER setLoading false");
     const role = newSigner.role_label;
 
     if (!name || !email || !role) {
-      setRecipientMessage(
-        "Please enter the name, email and role."
-      );
-
+      setRecipientMessage("Renseignez le nom, l'adresse e-mail et le rôle.");
+      return;
+    }
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      setRecipientMessage("L'adresse e-mail du destinataire est invalide.");
+      return;
+    }
+    if (recipients.some((recipient) => recipient.email.trim().toLowerCase() === email)) {
+      setRecipientMessage("Cette adresse e-mail est déjà utilisée par un destinataire du document.");
       return;
     }
 
