@@ -12,6 +12,8 @@ type Step = {
   is_required: boolean;
   default_name: string | null;
   default_email: string | null;
+  condition_type: string;
+  authorization_role: string;
 };
 type Edit = { step_id: string; name: string; email: string; enabled: boolean };
 type Blueprint = {
@@ -44,7 +46,7 @@ export default function HotelTemplateEditPage() {
         supabase.from("workspaces").select("id,name,type,organization_id").eq("id", workspaceId).single(),
         supabase.from("signature_blueprints")
           .select(`id,name,scope,organization_id,
-            signature_blueprint_steps(id,step_order,role_label,is_requester,is_required,default_name,default_email)`)
+            signature_blueprint_steps(id,step_order,role_label,is_requester,is_required,default_name,default_email,condition_type,authorization_role)`)
           .eq("id", blueprintId).single(),
         supabase.from("signature_blueprint_overrides")
           .select(`id,signature_blueprint_step_overrides(step_id,default_name,default_email,is_enabled)`)
@@ -102,6 +104,8 @@ export default function HotelTemplateEditPage() {
       return !edit.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(edit.email);
     });
     if (!valid) { setMessage("Vérifiez les e-mails et les étapes obligatoires."); return; }
+    const emails = edits.filter((item) => item.enabled && item.email.trim()).map((item) => item.email.trim().toLowerCase());
+    if (new Set(emails).size !== emails.length) { setMessage("Deux signataires ne peuvent pas partager la même adresse e-mail."); return; }
     setSaving(true);
     try {
       const supabase = createClient();
@@ -158,6 +162,7 @@ export default function HotelTemplateEditPage() {
                         {step.is_requester ? "Demandeur" : step.is_required ? "Obligatoire" : "Facultatif"}
                       </span>
                     </div>
+                    {!step.is_requester && <p className="mt-2 text-xs text-slate-500">{step.authorization_role === "power_of_attorney" ? "Fondé de pouvoir (DI)" : step.condition_type === "above_20k_strict" ? "Deuxième directeur si DR strictement supérieure à 20 000 €" : step.condition_type === "above_threshold" ? "Étape conditionnelle au seuil DI" : "Étape du circuit"}</p>}
                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                       <label className="text-sm">Nom
                         <input value={edit.name} disabled={step.is_requester}
