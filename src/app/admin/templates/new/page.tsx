@@ -11,7 +11,7 @@ type Step = {
   action: "signer" | "cc";
   required: boolean;
   authorization_role: "none" | "power_of_attorney";
-  condition: "always" | "it" | "above_threshold";
+  condition: "always" | "it" | "above_threshold" | "above_20k_strict";
 };
 
 const initialSteps: Step[] = [
@@ -25,7 +25,7 @@ const paymentRequestSteps: Step[] = [
   { id: "requester", role: "Enquirer / Demandeur", name: "", email: "", action: "signer", required: true, authorization_role: "none", condition: "always" },
   { id: "finance", role: "Financial Department / Service financier", name: "", email: "", action: "signer", required: true, authorization_role: "none", condition: "always" },
   { id: "director1", role: "Director / Directeur 1", name: "", email: "", action: "signer", required: true, authorization_role: "none", condition: "always" },
-  { id: "director2", role: "Director / Directeur 2 (si montant > 20 000 €)", name: "", email: "", action: "signer", required: false, authorization_role: "none", condition: "always" },
+  { id: "director2", role: "Director / Directeur 2 (si montant > 20 000 €)", name: "", email: "", action: "signer", required: true, authorization_role: "none", condition: "above_20k_strict" },
 ];
 
 export default function NewAdminTemplatePage() {
@@ -72,7 +72,7 @@ export default function NewAdminTemplatePage() {
   const validThreshold = threshold.trim() !== "" && Number.isFinite(Number(threshold)) && Number(threshold) > 0 && /^\\d+(?:\\.\\d{1,2})?$/.test(threshold.trim());
   const validRoles = steps.every((step) => step.role.trim().length > 0);
   const validRequester = steps[0]?.id === "requester" && steps[0]?.required && steps[0]?.action === "signer" && steps[0]?.condition === "always" && !steps[0]?.name && !steps[0]?.email;
-  const validConditions = steps.every((step) => (step.authorization_role !== "power_of_attorney" || (documentType === "DI" && step.action === "signer" && step.required && step.id !== "requester" && step.condition !== "it")) &&  (documentType === "DI" || step.condition !== "above_threshold") && (step.action !== "cc" || !step.required));
+  const validConditions = steps.every((step) => (step.authorization_role !== "power_of_attorney" || (documentType === "DI" && step.action === "signer" && step.required && step.id !== "requester" && step.condition !== "it")) &&  (documentType === "DI" || (step.condition !== "above_threshold" && (step.condition !== "above_20k_strict" || (step.action === "signer" && step.required && step.id !== "requester")))) && (step.action !== "cc" || !step.required));
   const validEmails = steps.every((step) => !step.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(step.email));
   const preview = {
     name: name.trim(),
