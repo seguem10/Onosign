@@ -45,7 +45,7 @@ export default function NewAdminTemplatePage() {
     setScope("head_office");
     setSteps(paymentRequestSteps.map((step) => ({ ...step })));
     setSourcePreset(true);
-    setNotice("Circuit importé depuis le formulaire ONOMO. La 4e signature est conditionnelle (> 20 000 €) dans le PDF mais la condition DR n'est pas encore automatisée. Modèle brouillon uniquement.");
+    setNotice("Circuit importé depuis le formulaire ONOMO. La 4e signature est conditionnelle (strictement > 20 000 €). Modèle brouillon : vérifier les identités des signataires et tester avant toute activation.");
   }
 
   function change(id: string, patch: Partial<Step>) {
@@ -72,7 +72,7 @@ export default function NewAdminTemplatePage() {
   const validThreshold = threshold.trim() !== "" && Number.isFinite(Number(threshold)) && Number(threshold) > 0 && /^\\d+(?:\\.\\d{1,2})?$/.test(threshold.trim());
   const validRoles = steps.every((step) => step.role.trim().length > 0);
   const validRequester = steps[0]?.id === "requester" && steps[0]?.required && steps[0]?.action === "signer" && steps[0]?.condition === "always" && !steps[0]?.name && !steps[0]?.email;
-  const validConditions = steps.every((step) => (step.authorization_role !== "power_of_attorney" || (documentType === "DI" && step.action === "signer" && step.required && step.id !== "requester" && step.condition !== "it")) &&  (documentType === "DI" || (step.condition !== "above_threshold" && (step.condition !== "above_20k_strict" || (step.action === "signer" && step.required && step.id !== "requester")))) && (step.action !== "cc" || !step.required));
+  const validConditions = steps.every((step) => (documentType !== "DI" || step.condition !== "above_20k_strict") && (step.authorization_role !== "power_of_attorney" || (documentType === "DI" && step.action === "signer" && step.required && step.id !== "requester" && step.condition !== "it")) &&  (documentType === "DI" || (step.condition !== "above_threshold" && (step.condition !== "above_20k_strict" || (step.action === "signer" && step.required && step.id !== "requester")))) && (step.action !== "cc" || !step.required));
   const validEmails = steps.every((step) => !step.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(step.email));
   const preview = {
     name: name.trim(),
@@ -138,7 +138,7 @@ export default function NewAdminTemplatePage() {
             className="mt-3 rounded-lg bg-sky-800 px-4 py-2 text-sm font-semibold text-white">
             Charger le circuit du formulaire fourni
           </button>
-          {sourcePreset && <p className="mt-2 text-xs text-amber-900">Attention : le 2e directeur reste facultatif dans ce brouillon. Le seuil DR du formulaire doit être implémenté côté serveur avant activation. Le PDF original n'est pas encore stocké dans l'application.</p>}
+          {sourcePreset && <p className="mt-2 text-xs text-amber-900">Le 2e directeur est automatiquement requis si le montant dépasse 20 000 €. Le PDF original n'est pas encore stocké dans l'application. L'envoi reste désactivé.</p>}
         </section>
         <section className="mt-6 grid gap-4 rounded-2xl border bg-white p-6 md:grid-cols-2">
           <label className="text-sm font-semibold">Nom du modèle
@@ -234,6 +234,7 @@ export default function NewAdminTemplatePage() {
                       <option value="always">Toujours</option>
                       <option value="it">Demande concernant l'IT</option>
                       {documentType === "DI" && <option value="above_threshold">Montant ≥ seuil</option>}
+                      {documentType === "DR" && <option value="above_20k_strict">Montant strictement &gt; 20 000 €</option>}
                     </select>
                   </label>
                   <label className="flex items-center gap-2 self-end pb-2 text-sm">
