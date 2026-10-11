@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../../lib/supabase";
+import { parseEurAmount } from "@/lib/amount-eur";
 
 type DocumentType = "DI" | "DR";
 
@@ -179,7 +180,8 @@ setWorkflowTemplates(templatesData ?? []);
       return;
     }
 
-    if ((documentType === "DI" || documentType === "DR") && (amountEur.trim() === "" || !Number.isFinite(Number(amountEur.replace(",", "."))) || Number(amountEur.replace(",", ".")) < 0 || !/^\\d+(?:[.,]\\d{1,2})?$/.test(amountEur.trim()))) {
+    const parsedAmountEur = parseEurAmount(amountEur);
+    if (parsedAmountEur === null) {
       setErrorMessage("Saisissez un montant valide en euros (2 décimales maximum).");
       return;
     }
@@ -250,7 +252,7 @@ setWorkflowTemplates(templatesData ?? []);
           storage_path: uploadedPath,
           status: "draft",
           document_type: documentType,
-          amount_eur: Number(amountEur.replace(",", ".")),
+          amount_eur: parsedAmountEur,
           original_sha256: originalSha256,
         })
         .select("id")
@@ -635,7 +637,7 @@ if (creatorRecipientError) {
                 submitting ||
                 !workspace ||
                 !title.trim() ||
-                !file || ((documentType === "DI" || documentType === "DR") && (amountEur.trim() === "" || !/^\\d+(?:[.,]\\d{1,2})?$/.test(amountEur.trim())))
+                !file || parseEurAmount(amountEur) === null
               }
               className="rounded-xl bg-emerald-600 px-7 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
