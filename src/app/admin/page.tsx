@@ -4,6 +4,12 @@ import { useRouter } from "next/navigation";
 
 const modules = [
   {
+    title: "Supervision des envois et archives",
+    description: "Surveiller les files d'invitations, les erreurs de livraison et les PDF finaux.",
+    icon: "📊",
+    href: "/admin/operations",
+  },
+  {
     title: "Préparation à la mise en service",
     description: "Suivre les hôtels, les modèles DI/DR et les contrôles bloquant les signatures réelles.",
     icon: "🧭",
