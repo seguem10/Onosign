@@ -32,16 +32,18 @@ function ReadinessCard({ title, value, warning }: {
 export default async function AdminReadinessPage() {
   // Server-side admin authorization is enforced by /admin/layout.tsx.
   const supabase = await createServerSupabaseClient();
-  const [hotelResult, blueprintResult, documentResult] = await Promise.all([
+  const [hotelResult, blueprintResult, documentResult, deliveryResult] = await Promise.all([
     supabase.rpc("onosign_hotel_onboarding_status"),
     supabase.from("signature_blueprints")
       .select("id,name,document_type,scope,is_active").order("name"),
     supabase.from("documents")
       .select("id", { count: "exact", head: true })
       .in("document_type", ["DI", "DR"]),
+    supabase.rpc("onosign_delivery_health"),
   ]);
 
-  const error = hotelResult.error ?? blueprintResult.error ?? documentResult.error;
+  const error = hotelResult.error ?? blueprintResult.error ?? documentResult.error ?? deliveryResult.error;
+  const delivery = (deliveryResult.data ?? {}) as { pending?: number; failed?: number; sent?: number; delivery_enabled?: boolean };
   const hotels = (hotelResult.data ?? []) as Hotel[];
   const models = (blueprintResult.data ?? []) as Model[];
   const memberless = hotels.filter((hotel) => !hotel.has_members);
@@ -75,6 +77,16 @@ export default async function AdminReadinessPage() {
               <ReadinessCard title="Modèles DI/DR inactifs" value={String(inactive.length)} warning={inactive.length > 0} />
               <ReadinessCard title="Documents DI/DR visibles" value={String(documentResult.count ?? 0)} />
             </div>
+            <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6">
+              <h2 className="text-lg font-bold">État de la file des invitations</h2>
+              <p className="mt-2 text-sm text-slate-600">Compteurs techniques de votre organisation ; aucune adresse e-mail ni aucun jeton ne sont affichés.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <ReadinessCard title="En attente" value={String(delivery.pending ?? 0)} />
+                <ReadinessCard title="En échec" value={String(delivery.failed ?? 0)} warning={(delivery.failed ?? 0) > 0} />
+                <ReadinessCard title="Marqués envoyés" value={String(delivery.sent ?? 0)} />
+              </div>
+              <p className="mt-3 text-xs font-semibold text-amber-800">Statut : envoi réel non autorisé. Ces données ne prouvent pas une livraison effective.</p>
+            </section>
             <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-6">
               <h2 className="text-lg font-bold text-amber-950">🚫 Signatures réelles non autorisées</h2>
               <p className="mt-2 text-sm leading-6 text-amber-900">
