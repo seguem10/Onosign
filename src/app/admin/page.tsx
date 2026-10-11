@@ -4,6 +4,12 @@ import { useRouter } from "next/navigation";
 
 const modules = [
   {
+    title: "Préparation à la mise en service",
+    description: "Suivre les hôtels, les modèles DI/DR et les contrôles bloquant les signatures réelles.",
+    icon: "🧭",
+    href: "/admin/readiness",
+  },
+  {
     title: "Affectation des hôtels",
     description: "Suivre les 22 établissements ONOMO et affecter les comptes existants.",
     icon: "🏢",
