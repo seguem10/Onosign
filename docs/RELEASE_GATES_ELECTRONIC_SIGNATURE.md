@@ -39,6 +39,17 @@ This file defines implementation and acceptance gates. Checking these boxes requ
 - [x] Original PDF debug traces containing recipient data or signed URLs were removed from the document editor.
 - [ ] Active authenticated recipient signing, notifications, PDF stamping and completed envelope lifecycle.
 
+## Latest implementation progress — 11 October 2026
+
+- [x] Verified-email signer can view a dispatched original PDF in `/sign/[id]`, through a restricted server endpoint with a second Storage RLS authorization check and SHA-256 verification. Still untestable against real dispatched documents because dispatch is disabled.
+- [x] Audit events are immutable and now linked to a per-document, concurrency-safe SHA-256 sequence. A creator/tenant-scoped verifier and technical JSON export are available. A rollback-only trigger smoke test passed without persisting an audit row.
+- [x] A private, idempotent invitation outbox exists; backend-only claim/finish functions and a feature-flagged email worker support future Resend delivery. **No provider secrets or verified sender configured; no external message sent.**
+- [x] Unit tests added for invitation email content and injection handling.
+- [x] Thirteen new read-only database security checks passed for signer PDF RLS, audit linkage and private email queue.
+- [x] GitHub Actions run 38136127210 succeeded (TypeScript, lint, signing/email unit tests, npm production advisory audit, Next.js build).
+- [ ] Fresh-database migration replay and multi-account positive/negative integration test suite.
+- [ ] All remaining P0 gates below, including actual authorization to dispatch, evidence-backed signatures, PDF finalization and secure archive.
+
 ## P0 — must complete before any external invite
 
 - [ ] Authenticated, server-owned atomic dispatch transaction checks workspace, creator, document draft state and actual blueprint; locks relevant rows and re-evaluates financial and PDF field rules.
