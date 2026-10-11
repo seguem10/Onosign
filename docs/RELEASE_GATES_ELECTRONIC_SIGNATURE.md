@@ -26,6 +26,14 @@ This file defines implementation and acceptance gates. Checking these boxes requ
 - [x] `/sign` shows read-only tasks only for confirmed Supabase Auth e-mails.
 - [x] Shared EUR parser and tests cover 0, 4,999.99, 5,000, 19,999.99, 20,000, 20,000.01, and 50,000 and reject malformed amounts. This corrects a blocked DI/DR input form.
 - [x] Seven additional read-only database security checks passed for the atomic draft, requester lock, and notification privileges.
+- [x] Six legacy anonymous SECURITY DEFINER RPC exposures were closed.
+- [x] Technical audit history is append-only and blocks cascade deletion; future entries snapshot original PDF SHA-256. A JSON technical report is available to the creator. **This is not a legal evidence certificate.**
+- [x] Admin control center at `/admin/readiness` displays hotel account coverage, model status and deployment blockers.
+- [x] Private mail outbox and hashed invitation-token storage have been added with pre-insert signing-order checks. **No delivery worker is connected.**
+- [x] French mail composition and a disabled-by-default Resend adapter have network-mocked unit tests. Delivery remains disabled.
+- [x] Eight read-only audit/delivery security invariants passed; see `supabase/tests/onomo_audit_delivery_readonly.sql`.
+- [ ] Enable compromised-password screening in Supabase Auth once supported and approved; security advisor currently reports this as a warning.
+
 - [ ] Exercise the full new-document browser flow with a dedicated authorized QA user and sample PDF in a non-production workspace.
 - [x] Read-only signer task lookup checks Supabase Auth verified e-mail against the intended recipient and ordered signer eligibility; the `/sign/[id]` portal clearly keeps signing disabled.
 - [x] Original PDF debug traces containing recipient data or signed URLs were removed from the document editor.
@@ -59,6 +67,7 @@ This file defines implementation and acceptance gates. Checking these boxes requ
 ## P1 — operational rollout
 
 - [ ] Configure verified SMTP or transactional mail provider and DNS (SPF, DKIM, DMARC).
+- [ ] Read `docs/EMAIL_DELIVERY_RUNBOOK.md`; configure and validate the privileged queue worker without premature email delivery.
 - [ ] Assign real, authorized staff accounts to 22 hotels and HQ; collect approved role/email mappings.
 - [ ] Obtain business signoff on DI/DR central models and optional signer policies.
 - [ ] Activate approved models only after P0 criteria and user acceptance testing.
