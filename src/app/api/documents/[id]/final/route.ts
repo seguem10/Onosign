@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { verifyStoredPdf } from "@/lib/server/pdf-integrity";
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
@@ -68,9 +68,8 @@ export async function GET(
     if (fileError || !pdf || pdf.size !== info.byte_size) return unavailable();
 
     const bytes = Buffer.from(await pdf.arrayBuffer());
-    if (bytes.subarray(0, 5).toString("ascii") !== "%PDF-") return unavailable(409);
-    const actual = createHash("sha256").update(bytes).digest("hex");
-    if (actual !== info.sha256) {
+    const integrity = verifyStoredPdf(bytes, info.sha256, info.byte_size);
+    if (!integrity.verified) {
       return NextResponse.json(
         { message: "Intégrité de l'archive PDF compromise : accès bloqué." },
         { status: 409, headers: securityHeaders }
