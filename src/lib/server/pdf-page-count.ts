@@ -20,7 +20,6 @@ export async function readPdfPageCount(bytes: Uint8Array): Promise<PdfPageInfo> 
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const task = pdfjs.getDocument({
     data: new Uint8Array(bytes),
-    isEvalSupported: false,
     useSystemFonts: false,
     useWorkerFetch: false,
     stopAtErrors: true,
