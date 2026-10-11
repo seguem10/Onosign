@@ -48,15 +48,16 @@ export async function GET(
       }
     }
 
-    const [{ data: events, count: totalEvents, error: eventsError }, { data: recipientData, error: recipientsError }] = await Promise.all([
+    const [{ data: events, count: totalEvents, error: eventsError }, { data: recipientData, error: recipientsError }, { data: auditChain, error: auditChainError }] = await Promise.all([
       supabase.from("onosign_document_audit")
-        .select("id,event_type,actor_id,recipient_id,previous_status,next_status,occurred_at,source_sha256", { count: "exact" })
-        .eq("document_id", id).order("id", { ascending: true }).range(0, 999),
+        .select("id,chain_sequence,previous_hash,entry_hash,event_type,actor_id,recipient_id,previous_status,next_status,occurred_at,source_sha256", { count: "exact" })
+        .eq("document_id", id).order("chain_sequence", { ascending: true }).range(0, 999),
       supabase.from("recipients")
         .select("id,role_label,recipient_type,signing_order,status,signed_at")
         .eq("document_id", id).order("signing_order"),
+      supabase.rpc("onosign_verify_document_audit", { p_document_id: id }),
     ]);
-    if (eventsError || recipientsError) {
+    if (eventsError || recipientsError || auditChainError) {
       return NextResponse.json({ error: "Historique indisponible." }, { status: 503, headers: noCache });
     }
 
@@ -84,6 +85,11 @@ export async function GET(
         final_sha256: doc.final_sha256,
       },
       recipients: recipientData ?? [],
+      auditChain: auditChain ?? {
+        chain_valid: false,
+        event_count: 0,
+        attestation_type: "untrusted_technical_hash_chain",
+      },
       events: events ?? [],
       auditEventsTotal: totalEvents ?? (events?.length ?? 0),
       eventsComplete: (totalEvents ?? 0) <= (events?.length ?? 0),
