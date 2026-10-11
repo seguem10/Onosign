@@ -36,18 +36,15 @@ export function renderOnoSignInvitation(input: {
   recipientName: string;
   organizationName: string;
   documentTitle: string;
-  loginUrl: string;
+  appOrigin: string;
+  documentId: string;
   expiry?: string | null;
 }): InvitationMail {
-  const { recipientName, organizationName, documentTitle, loginUrl, expiry } = input;
+  const { recipientName, organizationName, documentTitle, appOrigin, documentId, expiry } = input;
   if (!recipientName.trim() || !organizationName.trim() || !documentTitle.trim()) {
     throw new Error("Invitation names and document title are required");
   }
-  const url = new URL(loginUrl);
-  if (url.protocol !== "https:" || url.username || url.password ||
-      !/^\/sign\/[0-9a-f-]{36}$/i.test(url.pathname)) {
-    throw new Error("Invalid signer invitation URL");
-  }
+  const url = new URL(signerPortalUrl(appOrigin, documentId));
   const limit = expiry ? Date.parse(expiry) : null;
   if (expiry && (limit === null || !Number.isFinite(limit))) {
     throw new Error("Invalid invitation expiration");
