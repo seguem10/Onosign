@@ -12,7 +12,14 @@ This file defines implementation and acceptance gates. Checking these boxes requ
 - [x] Read-only preflight and database trigger that blocks blueprint dispatch.
 - [x] Technical append-only event timeline for new events (not legal signature evidence).
 - [x] Draft creation stores a client-computed original SHA-256 for newly uploaded PDFs.
-- [ ] CI installation, lint, typecheck and production build pass on this branch.
+- [x] CI install, TypeScript, ESLint, signing-engine unit tests, production dependency audit and Next.js build passed (GitHub Actions run 38098004737, commit `4a24cc8`).
+- [x] Server-side read-only review re-checks the active circuit and compares uploaded PDF bytes with the immutable source SHA-256.
+- [x] New DI/DR source PDF path/hash cannot be updated; storage disallows overwrite of originals or deletion of linked PDFs.
+- [x] New DI/DR metadata, recipients, fields and source PDFs are scoped to requester and authorized administrators (policies verified, real multi-account penetration tests still needed).
+- [x] Private PDF upload bucket limits new files to 20 MiB and MIME application/pdf.
+- [x] Ten read-only Supabase security invariants passed; stored in `supabase/tests/onomo_release_security_readonly.sql`.
+- [x] Server-only token hashing and ordered signing decision primitives have passing unit tests; **these primitives do not yet send or process signatures**.
+- [ ] Active authenticated recipient signing, notifications, PDF stamping and completed envelope lifecycle.
 
 ## P0 — must complete before any external invite
 
@@ -51,3 +58,13 @@ This file defines implementation and acceptance gates. Checking these boxes requ
 ## Important distinctions
 
 *The technical audit table is **not** an electronic signature certificate.* It currently logs lifecycle changes since its creation. Existing historical events are not backfilled. The seeded central DI/DR models are deliberately inactive. Until a tested secure send/sign pipeline is present, the database dispatch guard **must remain enabled**.
+
+## Preview build (not production)
+
+- Branch: `feature/workflow-admin-models` (do not merge into `main` before acceptance).
+- Latest verified GitHub quality run: 38098004737 — success.
+- Corresponding Vercel preview: `onosign-nglpv3sp0-ono13.vercel.app` — READY (platform build state only, **not** a completed user acceptance test).
+- Publishable Supabase preview environment variables configured; the private signature delivery provider and service credential are **not** configured.
+- The current database trigger intentionally rejects blueprint document dispatch. Inactive ONOMO hotel DI/DR templates remain inactive.
+
+This release is safe only for development/preview and must not be described as an electronic signature service until the sender/recipient identity, email delivery, encrypted invitation tokens, signed PDF generation and audit evidence have been implemented and independently tested.
