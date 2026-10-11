@@ -19,6 +19,8 @@ This file defines implementation and acceptance gates. Checking these boxes requ
 - [x] Private PDF upload bucket limits new files to 20 MiB and MIME application/pdf.
 - [x] Ten read-only Supabase security invariants passed; stored in `supabase/tests/onomo_release_security_readonly.sql`.
 - [x] Server-only token hashing and ordered signing decision primitives have passing unit tests; **these primitives do not yet send or process signatures**.
+- [x] Read-only signer task lookup checks Supabase Auth verified e-mail against the intended recipient and ordered signer eligibility; the `/sign/[id]` portal clearly keeps signing disabled.
+- [x] Original PDF debug traces containing recipient data or signed URLs were removed from the document editor.
 - [ ] Active authenticated recipient signing, notifications, PDF stamping and completed envelope lifecycle.
 
 ## P0 — must complete before any external invite
