@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { parsePositiveEurThreshold } from "@/lib/amount-eur";
 
 type Step = {
   id: string;
@@ -69,7 +70,7 @@ export default function NewAdminTemplatePage() {
     }]);
   }
 
-  const validThreshold = threshold.trim() !== "" && Number.isFinite(Number(threshold)) && Number(threshold) > 0 && /^\\d+(?:\\.\\d{1,2})?$/.test(threshold.trim());
+  const validThreshold = parsePositiveEurThreshold(threshold) !== null;
   const validRoles = steps.every((step) => step.role.trim().length > 0);
   const validRequester = steps[0]?.id === "requester" && steps[0]?.required && steps[0]?.action === "signer" && steps[0]?.condition === "always" && !steps[0]?.name && !steps[0]?.email;
   const validConditions = steps.every((step) => (documentType !== "DI" || step.condition !== "above_20k_strict") && (step.authorization_role !== "power_of_attorney" || (documentType === "DI" && step.action === "signer" && step.required && step.id !== "requester" && step.condition !== "it")) &&  (documentType === "DI" || (step.condition !== "above_threshold" && (step.condition !== "above_20k_strict" || (step.action === "signer" && step.required && step.id !== "requester")))) && (step.action !== "cc" || !step.required));
@@ -79,7 +80,7 @@ export default function NewAdminTemplatePage() {
     document_type: documentType,
     scope,
     financial_rule: documentType === "DI" ? {
-      currency: "EUR", threshold: Number(threshold),
+      currency: "EUR", threshold: parsePositiveEurThreshold(threshold),
       powers_below: 1, powers_at_or_above: 2,
     } : null,
     steps: steps.map((step, index) => ({ ...step, order: index + 1 })),
@@ -98,7 +99,7 @@ export default function NewAdminTemplatePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(), document_type: documentType, scope,
-          threshold_eur: documentType === "DI" ? Number(threshold) : null,
+          threshold_eur: documentType === "DI" ? parsePositiveEurThreshold(threshold) : null,
           steps: steps.map((step, index) => ({
             role: step.role.trim(), name: step.name.trim(), email: step.email.trim(),
             action: step.action, condition: step.condition,
