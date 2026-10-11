@@ -48,11 +48,18 @@ export async function POST(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
+  const { data: recovered, error: recoveryError } = await supabase
+    .rpc("onosign_requeue_stale_email_jobs", { p_limit: 10 });
+  if (recoveryError) return unavailable(503);
+
   const { data: jobs, error: claimError } = await supabase
     .rpc("onosign_claim_email_jobs", { p_limit: 5 });
   if (claimError || !Array.isArray(jobs)) return unavailable(503);
 
-  const counters = { claimed: jobs.length, delivered: 0, retried: 0, manual_review: 0 };
+  const counters = {
+    recovered: typeof recovered === "number" ? recovered : 0,
+    claimed: jobs.length, delivered: 0, retried: 0, manual_review: 0,
+  };
   async function finish(jobId: string, status: "delivered" | "retry" | "manual_review",
     providerId?: string, reason?: string) {
     const { data, error } = await supabase.rpc("onosign_finish_email_job", {
