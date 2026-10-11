@@ -221,12 +221,6 @@ const dragOffset = useRef({
     const supabase = createClient();
 
     async function loadDocument() {
-      console.log(
-  "1 - loadDocument started",
-  "documentId:",
-  documentId
-);
-console.trace("TRACE setLoading(true)");
       if (!document) {
   setLoading(true);
 }
@@ -256,8 +250,6 @@ console.trace("TRACE setLoading(true)");
 }
 
       setDocument(data);
-      console.log("1.1 - document loaded", data);
-
       /*
        * Workspace
        */
@@ -292,8 +284,6 @@ console.trace("TRACE setLoading(true)");
       }
 
       setPdfUrl(signedData.signedUrl);
-      console.log("1.2 - PDF URL loaded");
-
       /*
        * Recipients
        */
@@ -311,16 +301,13 @@ console.trace("TRACE setLoading(true)");
         });
 
       if (recipientError) {
-        console.error(
-          "Unable to load recipients:",
-          recipientError
-        );
+        setErrorMessage("Impossible de charger les destinataires du document.");
+        setLoading(false);
+        return;
       } else {
         const loadedRecipients = recipientData || [];
 
         setRecipients(loadedRecipients);
-        console.log("1.3 - recipients loaded", loadedRecipients);
-
         if (loadedRecipients.length > 0) {
           setSelectedRecipientId(
             loadedRecipients[0].id
@@ -331,7 +318,6 @@ console.trace("TRACE setLoading(true)");
       /*
        * Signature fields
        */
-      console.log("1.4 - starting signature fields");
       const {
         data: fieldsData,
         error: fieldsError,
@@ -344,29 +330,19 @@ console.trace("TRACE setLoading(true)");
         .order("created_at", {
           ascending: true,
         });
-        console.log(
-  "1.5 - signature fields response",
-  fieldsData,
-  fieldsError
-);
-
-      if (fieldsError) {
-        console.error(
-          "Unable to load signature fields:",
-          fieldsError
-        );
+        if (fieldsError) {
+        setErrorMessage("Impossible de charger les champs de signature du PDF.");
+        setLoading(false);
+        return;
       } else {
         setSignatureFields(
           (fieldsData || []) as SignatureField[]
         );
       }
 
-      console.log("1.6 - BEFORE setLoading false");
+      setLoading(false);
 
-setLoading(false);
-
-console.log("1.7 - AFTER setLoading false");
-    }
+}
 
     if (documentId) {
       loadDocument();
@@ -1113,13 +1089,6 @@ function resizeField(
    * ERROR
    * -------------------------------------------------------
    */
-  console.log("3 - MAIN EDITOR RENDER", {
-  loading,
-  documentId,
-  pdfUrl,
-  recipients: recipients.length,
-  fields: signatureFields.length,
-});
   if (errorMessage || !document) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
