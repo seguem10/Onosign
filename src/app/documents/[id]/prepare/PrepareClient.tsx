@@ -411,7 +411,7 @@ const dragOffset = useRef({
     duplicate_recipient_email: "Une adresse e-mail apparaît plusieurs fois.",
     missing_signature_fields: "Certains signataires n'ont pas de champ de signature.",
     insufficient_power_of_attorney: "Nombre de fondés de pouvoir insuffisant.",
-    payment_request_second_director_required: "Deux signatures de directeurs sont obligatoires au-delà de 20 000 €.",
+    payment_request_second_director_required: "Une signature de directeur est obligatoire pour chaque DR ; deux au-delà de 20 000 €.",
     missing_or_invalid_amount: "Le montant du document doit être renseigné et positif ou nul.",
     recipient_step_mismatch: "Un destinataire ne correspond plus à son étape du modèle.",
     missing_required_workflow_step: "Une étape obligatoire du circuit est absente.",
