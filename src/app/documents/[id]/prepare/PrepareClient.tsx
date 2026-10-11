@@ -11,7 +11,12 @@ import { createClient } from "@/lib/supabase";
  * On utilise exactement la version PDF.js utilisée par react-pdf.
  * Cela évite les erreurs "API version does not match Worker version".
  */
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Bundle the exact pinned PDF.js worker locally instead of relying on an
+// external CDN during confidential ONOMO PDF preparation.
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
 
 type DocumentData = {
   id: string;
