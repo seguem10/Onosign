@@ -1873,6 +1873,12 @@ disabled={fieldDisabled}
             <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
               <h3 className="text-sm font-bold text-slate-900">Historique technique</h3>
               <p className="mt-1 text-xs text-slate-500">Événements depuis l’activation du journal. Ne constitue pas une preuve de signature électronique.</p>
+              <a
+                href={`/api/documents/${encodeURIComponent(documentId)}/audit`}
+                className="mt-3 inline-flex rounded-lg border border-emerald-600 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+              >
+                Exporter le rapport technique (JSON)
+              </a>
               {auditError && <p role="alert" className="mt-2 text-xs text-amber-700">{auditError}</p>}
               {!auditError && auditEvents.length === 0 && <p className="mt-2 text-xs text-slate-500">Aucun événement enregistré pour ce document.</p>}
               <ol className="mt-3 space-y-2">
