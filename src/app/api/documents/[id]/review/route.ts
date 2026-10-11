@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import { verifyStoredPdf } from "@/lib/server/pdf-integrity";
+import { readPdfPageCount } from "@/lib/server/pdf-page-count";
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
@@ -65,6 +66,7 @@ export async function GET(
     const preflight = check as Preflight;
     const issues = Array.isArray(preflight.issues) ? [...preflight.issues] : [];
     let pdfVerified = false;
+    let pageCount: number | null = null;
     const expected = doc.original_sha256?.toLowerCase() ?? "";
 
     if (!/^[0-9a-f]{64}$/.test(expected)) {
@@ -79,13 +81,33 @@ export async function GET(
         issues.push("original_pdf_unavailable");
       } else {
         const bytes = Buffer.from(await file.arrayBuffer());
-        if (bytes.subarray(0, 5).toString("ascii") !== "%PDF-") {
-          issues.push("original_pdf_invalid_format");
+        const integrity = verifyStoredPdf(bytes, expected);
+        pdfVerified = integrity.verified;
+        if (!integrity.verified) {
+          issues.push(integrity.reason === "not_a_pdf"
+            ? "original_pdf_invalid_format" : "original_pdf_mismatch");
         } else {
-          const actualHash = createHash("sha256").update(bytes).digest("hex");
-          pdfVerified = actualHash === expected;
-          if (!pdfVerified) issues.push("original_pdf_mismatch");
+          try {
+            pageCount = (await readPdfPageCount(bytes)).pages;
+          } catch {
+            issues.push("original_pdf_invalid_structure");
+          }
         }
+      }
+    }
+
+    if (pageCount !== null) {
+      const { data: placedFields, error: fieldsError } = await supabase
+        .from("signature_fields")
+        .select("page_number")
+        .eq("document_id", doc.id);
+      if (fieldsError) {
+        issues.push("signature_fields_unavailable");
+      } else if ((placedFields ?? []).some((field) =>
+        !Number.isInteger(field.page_number) ||
+        field.page_number < 1 || field.page_number > pageCount!
+      )) {
+        issues.push("signature_field_out_of_pdf_range");
       }
     }
 
@@ -94,6 +116,7 @@ export async function GET(
       issues,
       ready_for_review: preflight.ready_for_review && pdfVerified && issues.length === 0,
       pdf_integrity_verified: pdfVerified,
+      pdf_page_count: pageCount,
       dispatch_authorized: false,
       // Never expose internal storage paths or raw original hash in the review.
     }, { headers: noStore });
