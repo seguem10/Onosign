@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../../lib/supabase";
+import { parseEurAmount } from "@/lib/amount-eur";
 
 type DocumentType = "DI" | "DR";
 
@@ -34,15 +35,11 @@ export default function NewDocumentPage() {
 );
 
   const [title, setTitle] = useState("");
+  const [amountEur, setAmountEur] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [organizationId, setOrganizationId] = useState("");
   const [userId, setUserId] = useState("");
-  const [userFullName, setUserFullName] =
-  useState("");
-
-const [userEmail, setUserEmail] =
-  useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -63,28 +60,6 @@ const [userEmail, setUserEmail] =
         }
 
         setUserId(user.id);
-        const { data: profile, error: profileError } =
-  await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .maybeSingle();
-
-if (profileError) {
-  console.error(
-    "Unable to load user profile:",
-    profileError
-  );
-}
-setUserFullName(
-  profile?.full_name ||
-    user.user_metadata?.full_name ||
-    user.email ||
-    "Collaborateur"
-);
-
-setUserEmail(user.email || "");
-
         const { data: membership, error: membershipError } = await supabase
           .from("organization_members")
           .select("organization_id")
@@ -119,7 +94,19 @@ setUserEmail(user.email || "");
           .maybeSingle();
 
         if (workspaceError || !workspaceData) {
-          setErrorMessage("You do not have access to this workspace.");
+          setErrorMessage("Espace de travail introuvable.");
+          setLoading(false);
+          return;
+        }
+        // The organization membership alone must not grant access to every hotel.
+        const { data: workspaceMembership, error: memberError } = await supabase
+          .from("workspace_members")
+          .select("workspace_id")
+          .eq("workspace_id", workspaceData.id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (memberError || !workspaceMembership) {
+          setErrorMessage("Vous n'êtes pas membre de cet établissement. Contactez l'administrateur.");
           setLoading(false);
           return;
         }
@@ -166,6 +153,12 @@ setWorkflowTemplates(templatesData ?? []);
       return;
     }
 
+    const parsedAmountEur = parseEurAmount(amountEur);
+    if (parsedAmountEur === null) {
+      setErrorMessage("Saisissez un montant valide en euros (2 décimales maximum).");
+      return;
+    }
+
     if (!file) {
       setErrorMessage("Please select a PDF file.");
       return;
@@ -176,7 +169,11 @@ setWorkflowTemplates(templatesData ?? []);
       file.name.toLowerCase().endsWith(".pdf");
 
     if (!isPdf) {
-      setErrorMessage("Only PDF files are allowed.");
+      setErrorMessage("Seuls les documents PDF sont acceptés.");
+      return;
+    }
+    if (file.size === 0 || file.size > 20 * 1024 * 1024) {
+      setErrorMessage("Le PDF doit être non vide et ne pas dépasser 20 Mo.");
       return;
     }
 
@@ -187,6 +184,15 @@ setWorkflowTemplates(templatesData ?? []);
     let uploadedPath = "";
 
     try {
+      // Identify the actual PDF bytes instead of trusting a user-provided extension.
+      const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+      if (String.fromCharCode(...header) !== "%PDF-") {
+        throw new Error("Le fichier sélectionné ne contient pas un en-tête PDF valide.");
+      }
+      const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+      const originalSha256 = Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
       const safeFileName = file.name
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
@@ -207,60 +213,30 @@ setWorkflowTemplates(templatesData ?? []);
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
-      const { data: createdDocument, error: documentError } = await supabase
-        .from("documents")
-        .insert({
-          organization_id: organizationId,
-          workspace_id: workspace.id,
-          created_by: userId,
-          title: title.trim(),
-          storage_path: uploadedPath,
-          status: "draft",
-        })
-        .select("id")
-        .single();
-
-      if (documentError) {
-        await supabase.storage
-          .from("documents")
-          .remove([uploadedPath]);
-
-        throw new Error(
-          `Document creation failed: ${documentError.message}`
-        );
-      }
-
-      if (!createdDocument) {
-        throw new Error("Document was not created.");
-      }
-      const { error: creatorRecipientError } =
-  await supabase
-    .from("recipients")
-    .insert({
-      document_id: createdDocument.id,
-      name: userFullName,
-      email: userEmail,
-      role_label: "Demandeur",
-      signing_order: 1,
-      status: "pending",
-      recipient_type: "signer",
-    });
-
-if (creatorRecipientError) {
-  throw new Error(
-    `Unable to add the requester as first signer: ${creatorRecipientError.message}`
-  );
-}
-
-      sessionStorage.setItem(
-        `onosign_document_type_${createdDocument.id}`,
-        documentType
+      // The database creates the draft, requester and audit records atomically.
+      // A model selected in the historical UI remains display-only.
+      const { data: createdDocumentId, error: documentError } = await supabase.rpc(
+        "onosign_create_document_draft",
+        {
+          p_organization_id: organizationId,
+          p_workspace_id: workspace.id,
+          p_title: title.trim(),
+          p_storage_path: uploadedPath,
+          p_document_type: documentType,
+          p_amount_eur: parsedAmountEur,
+          p_original_sha256: originalSha256,
+        }
       );
-
-      router.push(`/documents/${createdDocument.id}/prepare`);
+      if (documentError || !createdDocumentId) {
+        throw new Error(documentError?.message ?? "Impossible de créer le brouillon.");
+      }
+      router.push(`/documents/${createdDocumentId}/prepare`);
     } catch (error) {
       console.error(error);
-
+      if (uploadedPath) {
+        // Only unused uploads may be deleted; referenced originals are protected.
+        await supabase.storage.from("documents").remove([uploadedPath]);
+      }
       setErrorMessage(
         error instanceof Error
           ? error.message
@@ -403,16 +379,22 @@ if (creatorRecipientError) {
               onChange={(event) => setSelectedTemplateId(event.target.value)}
               className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
             >
-              <option value="">Sélectionner un modèle</option>
+              <option value="">Aucun modèle appliqué (configuration manuelle)</option>
               {availableTemplates.map((template) => (
                 <option key={template.id} value={template.id}>
                   {template.name}
                 </option>
               ))}
             </select>
+            {selectedTemplateId && (
+              <p className="mt-2 text-sm text-amber-700">
+                Le modèle sélectionné est uniquement indicatif : il ne sera ni enregistré
+                ni appliqué. Configurez et vérifiez tous les signataires manuellement.
+              </p>
+            )}
             {availableTemplates.length === 0 && (
               <p className="mt-2 text-sm text-amber-600">
-                Aucun modèle actif disponible pour ce type de document.
+                Aucun modèle historique actif disponible pour ce type de document.
               </p>
             )}
           </div>
@@ -447,6 +429,23 @@ if (creatorRecipientError) {
               />
             </div>
           </section>
+
+          {(documentType === "DI" || documentType === "DR") && (
+            <div className="mt-5">
+              <label htmlFor="amount-eur" className="mb-2 block text-sm font-semibold">
+                Montant du document (€)
+              </label>
+              <input id="amount-eur" inputMode="decimal" type="text"
+                value={amountEur} onChange={(event) => setAmountEur(event.target.value)}
+                placeholder="Exemple : 19999,99"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              />
+              <p className="mt-2 text-xs text-amber-700">
+                Le montant est enregistré, mais le contrôle obligatoire des fondés de pouvoir
+                n'est pas encore activé à l'envoi.
+              </p>
+            </div>
+          )}
 
           <div className="my-8 border-t border-slate-200" />
 
@@ -579,7 +578,7 @@ if (creatorRecipientError) {
                 submitting ||
                 !workspace ||
                 !title.trim() ||
-                !file
+                !file || parseEurAmount(amountEur) === null
               }
               className="rounded-xl bg-emerald-600 px-7 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >

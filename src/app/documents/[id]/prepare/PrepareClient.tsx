@@ -11,7 +11,12 @@ import { createClient } from "@/lib/supabase";
  * On utilise exactement la version PDF.js utilisée par react-pdf.
  * Cela évite les erreurs "API version does not match Worker version".
  */
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Bundle the exact pinned PDF.js worker locally instead of relying on an
+// external CDN during confidential ONOMO PDF preparation.
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
 
 type DocumentData = {
   id: string;
@@ -20,6 +25,7 @@ type DocumentData = {
   storage_path: string;
   workspace_id: string;
   created_at: string;
+  signature_blueprint_id: string | null;
 };
 
 type Recipient = {
@@ -107,7 +113,7 @@ const FIELD_CONFIG: Record<
 };
 
 export default function PrepareDocumentPage() {
- console.log("RENDER PrepareDocumentPage");
+
   const params = useParams();
   const router = useRouter();
 
@@ -117,10 +123,82 @@ export default function PrepareDocumentPage() {
   const [document, setDocument] =
     useState<DocumentData | null>(null);
 
+  type AuditEvent = { id: number; event_type: string; previous_status: string | null; next_status: string | null; occurred_at: string };
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [auditError, setAuditError] = useState("");
+  const [auditChainBusy, setAuditChainBusy] = useState(false);
+  const [auditChainMessage, setAuditChainMessage] = useState("");
+  async function verifyAuditChain() {
+    if (auditChainBusy) return;
+    setAuditChainBusy(true);
+    setAuditChainMessage("");
+    try {
+      const response = await fetch(
+        `/api/documents/${encodeURIComponent(documentId)}/audit/verify`,
+        { cache: "no-store" }
+      );
+      const data: {
+        chain_valid?: boolean; event_count?: number; message?: string;
+      } = await response.json();
+      if (!response.ok) throw new Error(data.message ?? "Vérification indisponible.");
+      if (!data.event_count) {
+        setAuditChainMessage("Aucun événement enregistré : vérification impossible.");
+      } else if (data.chain_valid) {
+        setAuditChainMessage(
+          `Chaîne SHA-256 cohérente pour ${data.event_count} événement(s). Ne constitue pas une preuve juridique.`
+        );
+      } else {
+        setAuditChainMessage("⚠️ Chaîne technique incohérente : contactez l'administrateur.");
+      }
+    } catch (error) {
+      setAuditChainMessage(error instanceof Error ? error.message : "Vérification impossible.");
+    } finally {
+      setAuditChainBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!documentId) return;
+    let active = true;
+    const supabase = createClient();
+    void supabase.from("onosign_document_audit")
+      .select("id,event_type,previous_status,next_status,occurred_at")
+      .eq("document_id", documentId)
+      .order("occurred_at", { ascending: false })
+      .limit(30)
+      .then(({data,error}) => {
+        if (!active) return;
+        if (error) setAuditError("Historique indisponible.");
+        else setAuditEvents((data ?? []) as AuditEvent[]);
+      });
+    return () => { active = false; };
+  }, [documentId]);
   const [workspaceName, setWorkspaceName] = useState("");
   const [pdfUrl, setPdfUrl] = useState("");
+  const [integrityChecking, setIntegrityChecking] = useState(false);
+  const [integrityResult, setIntegrityResult] = useState("");
+  async function verifyOriginalPdf() {
+    if (integrityChecking) return;
+    setIntegrityChecking(true);
+    setIntegrityResult("");
+    try {
+      const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/integrity`, {
+        method: "GET",
+        cache: "no-store",
+      });
+      const data: { verified?: boolean; message?: string } = await response.json();
+      setIntegrityResult(data.message ?? "Résultat de vérification indisponible.");
+    } catch {
+      setIntegrityResult("Impossible de contacter le service de vérification.");
+    } finally {
+      setIntegrityChecking(false);
+    }
+  }
+
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [populatingBlueprint, setPopulatingBlueprint] = useState(false);
+  const [blueprintMessage, setBlueprintMessage] = useState("");
 
   const [savingRecipients, setSavingRecipients] =
     useState(false);
@@ -179,12 +257,6 @@ const dragOffset = useRef({
     const supabase = createClient();
 
     async function loadDocument() {
-      console.log(
-  "1 - loadDocument started",
-  "documentId:",
-  documentId
-);
-console.trace("TRACE setLoading(true)");
       if (!document) {
   setLoading(true);
 }
@@ -193,7 +265,7 @@ console.trace("TRACE setLoading(true)");
       const { data, error } = await supabase
         .from("documents")
         .select(
-          "id, title, status, storage_path, workspace_id, created_at"
+          "id, title, status, storage_path, workspace_id, created_at, signature_blueprint_id"
         )
         .eq("id", documentId)
         .maybeSingle();
@@ -214,8 +286,6 @@ console.trace("TRACE setLoading(true)");
 }
 
       setDocument(data);
-      console.log("1.1 - document loaded", data);
-
       /*
        * Workspace
        */
@@ -250,8 +320,6 @@ console.trace("TRACE setLoading(true)");
       }
 
       setPdfUrl(signedData.signedUrl);
-      console.log("1.2 - PDF URL loaded");
-
       /*
        * Recipients
        */
@@ -269,16 +337,13 @@ console.trace("TRACE setLoading(true)");
         });
 
       if (recipientError) {
-        console.error(
-          "Unable to load recipients:",
-          recipientError
-        );
+        setErrorMessage("Impossible de charger les destinataires du document.");
+        setLoading(false);
+        return;
       } else {
         const loadedRecipients = recipientData || [];
 
         setRecipients(loadedRecipients);
-        console.log("1.3 - recipients loaded", loadedRecipients);
-
         if (loadedRecipients.length > 0) {
           setSelectedRecipientId(
             loadedRecipients[0].id
@@ -289,7 +354,6 @@ console.trace("TRACE setLoading(true)");
       /*
        * Signature fields
        */
-      console.log("1.4 - starting signature fields");
       const {
         data: fieldsData,
         error: fieldsError,
@@ -302,34 +366,151 @@ console.trace("TRACE setLoading(true)");
         .order("created_at", {
           ascending: true,
         });
-        console.log(
-  "1.5 - signature fields response",
-  fieldsData,
-  fieldsError
-);
-
-      if (fieldsError) {
-        console.error(
-          "Unable to load signature fields:",
-          fieldsError
-        );
+        if (fieldsError) {
+        setErrorMessage("Impossible de charger les champs de signature du PDF.");
+        setLoading(false);
+        return;
       } else {
         setSignatureFields(
           (fieldsData || []) as SignatureField[]
         );
       }
 
-      console.log("1.6 - BEFORE setLoading false");
+      setLoading(false);
 
-setLoading(false);
-
-console.log("1.7 - AFTER setLoading false");
-    }
+}
 
     if (documentId) {
       loadDocument();
     }
   }, [documentId]);
+
+  const [availableBlueprints, setAvailableBlueprints] = useState<Array<{blueprint_id:string;blueprint_name:string}>>([]);
+  const [selectedBlueprint, setSelectedBlueprint] = useState("");
+  const [assigningBlueprint, setAssigningBlueprint] = useState(false);
+
+  useEffect(() => {
+    if (!document || document.status !== "draft" || document.signature_blueprint_id) return;
+    let cancelled = false;
+    const supabase = createClient();
+    void supabase.rpc("onosign_available_document_blueprints", {p_document_id: documentId})
+      .then(({data,error}) => {
+        if (!cancelled && !error && data) setAvailableBlueprints(data);
+      });
+    return () => { cancelled = true; };
+  }, [document, documentId]);
+
+  async function assignSelectedBlueprint() {
+    if (!selectedBlueprint || assigningBlueprint || !document || document.status !== "draft") return;
+    setAssigningBlueprint(true);
+    setBlueprintMessage("");
+    try {
+      const supabase = createClient();
+      const {error} = await supabase.rpc("onosign_assign_blueprint", {
+        p_document_id: documentId, p_blueprint_id: selectedBlueprint,
+      });
+      if (error) throw new Error(error.message);
+      setDocument({...document, signature_blueprint_id: selectedBlueprint});
+      setBlueprintMessage("Modèle associé. Vous pouvez maintenant appliquer ses signataires.");
+    } catch (error) {
+      setBlueprintMessage(error instanceof Error ? error.message : "Association impossible");
+    } finally {
+      setAssigningBlueprint(false);
+    }
+  }
+
+  type BlueprintPreflight = {
+    ready_for_review: boolean;
+    dispatch_authorized: boolean;
+    issues: string[];
+    recipients: number;
+    mapped_recipients: number;
+    required_power_signers: number;
+    actual_power_signers: number;
+    signers_missing_signature_fields: number;
+    pdf_integrity_verified: boolean;
+    pdf_page_count: number | null;
+  };
+  const [preflight, setPreflight] = useState<BlueprintPreflight | null>(null);
+  const [preflightLoading, setPreflightLoading] = useState(false);
+  const [preflightError, setPreflightError] = useState("");
+  useEffect(() => {
+    let current = true;
+    // Invalidate a previous server result after changes, without a synchronous effect update.
+    queueMicrotask(() => { if (current) setPreflight(null); });
+    return () => { current = false; };
+  }, [recipients, signatureFields, document?.signature_blueprint_id]);
+  const issueLabels: Record<string, string> = {
+    not_draft: "Le document n'est plus en brouillon.",
+    blueprint_inactive: "Le modèle est inactif.",
+    recipient_mapping_incomplete: "Les destinataires ne correspondent pas au modèle.",
+    recipient_already_processed: "Un destinataire a déjà été traité.",
+    duplicate_recipient_email: "Une adresse e-mail apparaît plusieurs fois.",
+    missing_signature_fields: "Certains signataires n'ont pas de champ de signature.",
+    insufficient_power_of_attorney: "Nombre de fondés de pouvoir insuffisant.",
+    payment_request_second_director_required: "Une signature de directeur est obligatoire pour chaque DR ; deux au-delà de 20 000 €.",
+    missing_or_invalid_amount: "Le montant du document doit être renseigné et positif ou nul.",
+    recipient_step_mismatch: "Un destinataire ne correspond plus à son étape du modèle.",
+    missing_required_workflow_step: "Une étape obligatoire du circuit est absente.",
+    invalid_requester_order: "Le demandeur doit être le seul signataire en première position.",
+    unexpected_workflow_step: "Un signataire conditionnel est présent alors que le montant ne le prévoit pas.",
+    requester_mapping_invalid: "Le demandeur initial n’est pas correctement identifié.",
+    duplicate_signing_order: "Plusieurs destinataires occupent la même position de signature.",
+    invalid_signature_field: "Un champ PDF est invalide ou associé à un mauvais destinataire.",
+    original_pdf_missing_hash: "Le PDF original ne possède pas d'empreinte SHA-256 valide.",
+    original_pdf_invalid_path: "Le PDF original n'est pas dans le dossier du créateur.",
+    original_pdf_unavailable: "Le fichier PDF original est inaccessible ou trop volumineux.",
+    original_pdf_invalid_format: "Le contenu stocké ne correspond pas à un PDF.",
+    original_pdf_mismatch: "L'empreinte du PDF a changé : document potentiellement altéré.",
+    original_pdf_invalid_structure: "Le PDF est malformé, chiffré ou possède trop de pages.",
+    signature_fields_unavailable: "Impossible de vérifier le placement des champs PDF.",
+    signature_field_out_of_pdf_range: "Un champ de signature se trouve en dehors des pages réelles du PDF.",
+  };
+  async function checkBlueprintPreflight() {
+    if (!document?.signature_blueprint_id || preflightLoading) return;
+    setPreflightLoading(true);
+    setPreflightError("");
+    setPreflight(null);
+    try {
+      const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/review`, {
+        method: "GET",
+        cache: "no-store",
+      });
+      const data = await response.json() as BlueprintPreflight & {message?: string};
+      if (!response.ok) throw new Error(data.message ?? "Vérification serveur indisponible.");
+      setPreflight(data);
+    } catch (error) {
+      setPreflightError(error instanceof Error ? error.message : "Contrôle indisponible");
+    } finally {
+      setPreflightLoading(false);
+    }
+  }
+
+  async function populateAssignedBlueprint() {
+    if (!document?.signature_blueprint_id || document.status !== "draft" ||
+        recipients.length !== 1 || signatureFields.length > 0 || populatingBlueprint) return;
+    setPopulatingBlueprint(true);
+    setBlueprintMessage("");
+    try {
+      const supabase = createClient();
+      const { data: added, error } = await supabase.rpc("onosign_populate_blueprint_recipients", {
+        p_document_id: documentId,
+      });
+      if (error) throw new Error(error.message);
+      const { data: updated, error: readError } = await supabase
+        .from("recipients")
+        .select("id, name, email, role_label, signing_order, status, recipient_type")
+        .eq("document_id", documentId)
+        .order("signing_order", { ascending: true });
+      if (readError || !updated) throw new Error(readError?.message ?? "Destinataires indisponibles");
+      setRecipients(updated as Recipient[]);
+      setBlueprintMessage(`${added} destinataire(s) ajouté(s) au brouillon. Vérifiez les identités et les champs de signature.`);
+    } catch (error) {
+      setBlueprintMessage(error instanceof Error ? error.message : "Impossible d'appliquer le modèle.");
+    } finally {
+      setPopulatingBlueprint(false);
+    }
+  }
 
   /*
    * -------------------------------------------------------
@@ -338,6 +519,10 @@ console.log("1.7 - AFTER setLoading false");
    */
   async function addSigner() {
     setRecipientMessage("");
+    if (!document || document.status !== "draft" || document.signature_blueprint_id) {
+      setRecipientMessage("Les signataires des modèles DI/DR sont gérés par le circuit central. Modification manuelle indisponible.");
+      return;
+    }
 
     const name = newSigner.name.trim();
 
@@ -348,10 +533,15 @@ console.log("1.7 - AFTER setLoading false");
     const role = newSigner.role_label;
 
     if (!name || !email || !role) {
-      setRecipientMessage(
-        "Please enter the name, email and role."
-      );
-
+      setRecipientMessage("Renseignez le nom, l'adresse e-mail et le rôle.");
+      return;
+    }
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      setRecipientMessage("L'adresse e-mail du destinataire est invalide.");
+      return;
+    }
+    if (recipients.some((recipient) => recipient.email.trim().toLowerCase() === email)) {
+      setRecipientMessage("Cette adresse e-mail est déjà utilisée par un destinataire du document.");
       return;
     }
 
@@ -425,6 +615,10 @@ console.log("1.7 - AFTER setLoading false");
 ) {
   event.preventDefault();
   event.stopPropagation();
+  if (document?.status !== "draft") {
+    setFieldMessage("Les champs ne peuvent être modifiés que dans un brouillon.");
+    return;
+  }
 
   if (!selectedRecipientId) {
     setFieldMessage(
@@ -875,6 +1069,10 @@ function resizeField(
   async function deleteField(
     fieldId: string
   ) {
+    if (document?.status !== "draft") {
+      setFieldMessage("Suppression impossible : le document n’est plus en brouillon.");
+      return;
+    }
     const supabase = createClient();
 
     const { error } = await supabase
@@ -931,13 +1129,6 @@ function resizeField(
    * ERROR
    * -------------------------------------------------------
    */
-  console.log("3 - MAIN EDITOR RENDER", {
-  loading,
-  documentId,
-  pdfUrl,
-  recipients: recipients.length,
-  fields: signatureFields.length,
-});
   if (errorMessage || !document) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
@@ -1019,14 +1210,98 @@ function resizeField(
 
             <button
               type="button"
-              className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+              disabled
+              title="Envoi désactivé : la validation sécurisée du circuit de signature reste à développer."
+              className="cursor-not-allowed rounded-xl bg-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700"
             >
-              Save & Continue →
+              Envoi indisponible — brouillon uniquement
             </button>
           </div>
         </div>
       </header>
 
+      {document.status === "draft" && !document.signature_blueprint_id && availableBlueprints.length > 0 && (
+        <section className="border-b border-emerald-200 bg-emerald-50 px-6 py-4">
+          <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3">
+            <label htmlFor="blueprint-choice" className="text-sm font-semibold text-emerald-950">
+              Modèle de signature disponible
+            </label>
+            <select id="blueprint-choice" value={selectedBlueprint}
+              onChange={(event) => setSelectedBlueprint(event.target.value)}
+              className="min-w-64 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm">
+              <option value="">Choisir un modèle actif…</option>
+              {availableBlueprints.map((blueprint) => (
+                <option key={blueprint.blueprint_id} value={blueprint.blueprint_id}>
+                  {blueprint.blueprint_name}
+                </option>
+              ))}
+            </select>
+            <button type="button" onClick={() => void assignSelectedBlueprint()}
+              disabled={!selectedBlueprint || assigningBlueprint || recipients.length !== 1 || signatureFields.length > 0}
+              className="rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
+              {assigningBlueprint ? "Association…" : "Associer le modèle"}
+            </button>
+            {blueprintMessage && <p role="status" className="w-full text-sm text-emerald-950">{blueprintMessage}</p>}
+          </div>
+        </section>
+      )}
+      {document.signature_blueprint_id && document.status === "draft" && (
+        <section className="border-b border-amber-200 bg-amber-50 px-6 py-4">
+          <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3">
+            <div className="flex-1 text-sm text-amber-950">
+              <strong>Modèle de signature associé.</strong> La génération des destinataires
+              n'autorise pas l'envoi. Vérifiez le circuit et les signatures avant toute validation.
+            </div>
+            <button type="button" onClick={() => void populateAssignedBlueprint()}
+              disabled={populatingBlueprint || recipients.length !== 1 || signatureFields.length > 0}
+              className="rounded-lg bg-amber-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
+              {populatingBlueprint ? "Application…" : "Appliquer les signataires du modèle"}
+            </button>
+            {blueprintMessage && <p role="status" className="w-full text-sm text-amber-950">{blueprintMessage}</p>}
+          </div>
+        </section>
+      )}
+      {document.signature_blueprint_id && (
+        <section className="border-b border-slate-200 bg-white px-6 py-4">
+          <div className="mx-auto max-w-[1500px] space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-slate-900">Contrôle du circuit DI / DR</h2>
+                <p className="text-xs text-slate-500">
+                  Contrôle du circuit et de l'intégrité PDF côté serveur. L'envoi reste désactivé.
+                </p>
+              </div>
+              <button type="button" onClick={() => void checkBlueprintPreflight()}
+                disabled={preflightLoading}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-40">
+                {preflightLoading ? "Vérification…" : "Vérifier circuit + PDF"}
+              </button>
+            </div>
+            {preflightError && <p role="alert" className="text-sm text-red-700">{preflightError}</p>}
+            {preflight && (
+              <div role="status" className={`rounded-lg border p-3 text-sm ${preflight.ready_for_review
+                ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                : "border-amber-300 bg-amber-50 text-amber-950"}`}>
+                <p className="font-semibold">{preflight.ready_for_review
+                  ? "Circuit prêt pour revue — envoi toujours bloqué"
+                  : "Des corrections sont nécessaires avant la revue"}</p>
+                <p className="mt-1">Destinataires : {preflight.recipients} · Fondés de pouvoir : {preflight.actual_power_signers}/{preflight.required_power_signers}</p>
+                <p className="mt-1">PDF original : {preflight.pdf_integrity_verified ? "Empreinte vérifiée" : "Non vérifié"}</p>
+                {preflight.pdf_page_count !== null && (
+                  <p className="mt-1">Pages PDF vérifiées : {preflight.pdf_page_count}</p>
+                )}
+                {preflight.issues.length > 0 && (
+                  <ul className="mt-2 list-inside list-disc">
+                    {preflight.issues.map((issue) => (
+                      <li key={issue}>{issueLabels[issue] ?? issue}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
       {/* RECIPIENT BAR */}
       <section className="border-b border-slate-200 bg-white px-6 py-4">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -1112,12 +1387,14 @@ function resizeField(
 
             <button
               type="button"
+              disabled={document.status !== "draft" || !!document.signature_blueprint_id}
+              title={document.signature_blueprint_id ? "Les destinataires du modèle sont protégés." : undefined}
               onClick={() =>
                 setShowAddSigner(
                   !showAddSigner
                 )
               }
-              className="rounded-xl border border-dashed border-emerald-400 px-4 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
+              className="rounded-xl border border-dashed border-emerald-400 px-4 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               + Add signer
             </button>
@@ -1125,7 +1402,7 @@ function resizeField(
         </div>
 
         {/* ADD SIGNER FORM */}
-        {showAddSigner && (
+        {showAddSigner && document.status === "draft" && !document.signature_blueprint_id && (
           <div className="mx-auto mt-4 max-w-[1500px] rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
             <h3 className="font-bold text-slate-900">
               Add signer
@@ -1624,6 +1901,57 @@ disabled={fieldDisabled}
                 Saved in OnoSign
               </p>
             </div>
+
+            <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-bold text-slate-900">Intégrité du PDF original</h3>
+              <p className="mt-1 text-xs text-slate-500">Compare le PDF conservé sur le serveur à son empreinte SHA-256 initiale. Ce contrôle ne remplace pas une signature électronique.</p>
+              <button type="button" disabled={integrityChecking}
+                onClick={() => void verifyOriginalPdf()}
+                className="mt-3 w-full rounded-lg border border-emerald-500 px-3 py-2 text-sm font-semibold text-emerald-800 disabled:opacity-50">
+                {integrityChecking ? "Vérification…" : "Vérifier le PDF original"}
+              </button>
+              {integrityResult && <p role="status" className="mt-2 text-xs text-slate-700">{integrityResult}</p>}
+            </section>
+
+            <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-bold text-slate-900">Historique technique</h3>
+              <p className="mt-1 text-xs text-slate-500">Événements depuis l’activation du journal. Ne constitue pas une preuve de signature électronique.</p>
+              <a
+                href={`/api/documents/${encodeURIComponent(documentId)}/audit`}
+                className="mt-3 inline-flex rounded-lg border border-emerald-600 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+              >
+                Exporter le rapport technique (JSON)
+              </a>
+              <button
+                type="button"
+                disabled={auditChainBusy}
+                onClick={() => void verifyAuditChain()}
+                className="mt-3 ml-0 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 disabled:opacity-50"
+              >
+                {auditChainBusy ? "Vérification…" : "Vérifier la chaîne SHA-256"}
+              </button>
+              {auditChainMessage && (
+                <p role="status" className="mt-2 text-xs text-slate-700">{auditChainMessage}</p>
+              )}
+              {auditError && <p role="alert" className="mt-2 text-xs text-amber-700">{auditError}</p>}
+              {!auditError && auditEvents.length === 0 && <p className="mt-2 text-xs text-slate-500">Aucun événement enregistré pour ce document.</p>}
+              <ol className="mt-3 space-y-2">
+                {auditEvents.map((event) => (
+                  <li key={event.id} className="border-l-2 border-emerald-200 pl-3 text-xs text-slate-700">
+                    <span className="font-semibold">{({
+                      document_created: "Document créé",
+                      document_status_changed: "Statut du document modifié",
+                      recipient_added: "Destinataire ajouté",
+                      recipient_status_changed: "Statut du destinataire modifié",
+                    } as Record<string,string>)[event.event_type] ?? event.event_type}</span>
+                    <div className="text-slate-500">{new Date(event.occurred_at).toLocaleString("fr-FR")}</div>
+                    {event.previous_status !== event.next_status && event.previous_status && (
+                      <div>{event.previous_status} → {event.next_status ?? "—"}</div>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </section>
 
             {pdfUrl && (
               <a

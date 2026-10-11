@@ -4,6 +4,24 @@ import { useRouter } from "next/navigation";
 
 const modules = [
   {
+    title: "Supervision des envois et archives",
+    description: "Surveiller les files d'invitations, les erreurs de livraison et les PDF finaux.",
+    icon: "📊",
+    href: "/admin/operations",
+  },
+  {
+    title: "Préparation à la mise en service",
+    description: "Suivre les hôtels, les modèles DI/DR et les contrôles bloquant les signatures réelles.",
+    icon: "🧭",
+    href: "/admin/readiness",
+  },
+  {
+    title: "Affectation des hôtels",
+    description: "Suivre les 22 établissements ONOMO et affecter les comptes existants.",
+    icon: "🏢",
+    href: "/admin/hotels",
+  },
+  {
     title: "Hôtels & Siège",
     description:
       "Créer et gérer les hôtels, le siège et les départements.",

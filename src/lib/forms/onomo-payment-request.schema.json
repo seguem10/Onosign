@@ -1,0 +1,157 @@
+{
+  "id": "onomo-payment-request",
+  "version": 1,
+  "document_type": "DR",
+  "applies_to": "all_amounts",
+  "currency": "EUR",
+  "thresholds": {
+    "second_director_strictly_greater_than_eur": 20000
+  },
+  "fields": [
+    {
+      "id": "enquirer_name",
+      "label": "Enquirer name",
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "request_date",
+      "label": "Date",
+      "type": "date",
+      "required": true
+    },
+    {
+      "id": "enquirer_department",
+      "label": "Department",
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "supplier",
+      "label": "Supplier",
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "entity_billed",
+      "label": "Entity billed",
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "payment_currency",
+      "label": "Payment currency",
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "project",
+      "label": "Project",
+      "type": "text",
+      "required": false
+    },
+    {
+      "id": "department_if_different",
+      "label": "Department (if different)",
+      "type": "text",
+      "required": false
+    },
+    {
+      "id": "lot",
+      "label": "Lot (if applicable)",
+      "type": "text",
+      "required": false
+    },
+    {
+      "id": "description",
+      "label": "Description of expense",
+      "type": "multiline",
+      "required": true
+    },
+    {
+      "id": "director_signed_contract",
+      "label": "Contract signed by one of directors?",
+      "type": "yes_no",
+      "required": true
+    },
+    {
+      "id": "derogatory_request",
+      "label": "Derogatory request if no contract signed",
+      "type": "multiline",
+      "required": false,
+      "required_when": {
+        "director_signed_contract": false
+      }
+    },
+    {
+      "id": "invoices",
+      "label": "Invoices",
+      "type": "table",
+      "max_rows": 6,
+      "columns": [
+        "amount_to_pay",
+        "currency",
+        "ex_vat",
+        "invoice_date",
+        "invoice_number"
+      ],
+      "required": true
+    },
+    {
+      "id": "total_ex_vat",
+      "label": "Total ex VAT",
+      "type": "money",
+      "required": true
+    },
+    {
+      "id": "comments_if_denied",
+      "label": "Comments if denied / derogatory process",
+      "type": "multiline",
+      "required": false
+    }
+  ],
+  "signing_order": [
+    {
+      "order": 1,
+      "role": "Enquirer / Demandeur",
+      "required": true
+    },
+    {
+      "order": 2,
+      "role": "Financial Department / Service financier",
+      "required": true
+    },
+    {
+      "order": 3,
+      "role": "Director / Directeur 1",
+      "required": true
+    },
+    {
+      "order": 4,
+      "role": "Director / Directeur 2",
+      "required_when": {
+        "amount_eur_gt": 20000
+      }
+    }
+  ],
+  "attachments": [
+    {
+      "id": "written_agreement",
+      "label": "Written agreement between parties"
+    },
+    {
+      "id": "signed_invoice",
+      "label": "Invoice signed by requesting department head"
+    },
+    {
+      "id": "budget",
+      "label": "Budget devoted to expense"
+    },
+    {
+      "id": "delivery_note",
+      "label": "Delivery note",
+      "if_applicable": true
+    }
+  ],
+  "note": "Data definition only; PDF overlay and actual signature dispatch are not yet implemented."
+}
