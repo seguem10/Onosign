@@ -62,6 +62,29 @@ export default async function SignerTaskPage({
                 <div><dt className="text-slate-500">Ordre</dt><dd className="font-semibold">{task.signing_order}</dd></div>
                 <div><dt className="text-slate-500">Statut</dt><dd className="font-semibold">{task.recipient_status}</dd></div>
               </dl>
+              <section className="mt-7 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-sm font-bold text-slate-900">Document original</h2>
+                  <a
+                    href={`/api/sign/${encodeURIComponent(id)}/pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-lg border border-emerald-600 px-3 py-2 text-xs font-semibold text-emerald-800"
+                  >
+                    Ouvrir le PDF ↗
+                  </a>
+                </div>
+                <iframe
+                  title="Document original à vérifier avant signature"
+                  src={`/api/sign/${encodeURIComponent(id)}/pdf`}
+                  className="h-[620px] w-full rounded-lg border border-slate-200 bg-white"
+                />
+                <p className="mt-2 text-xs text-slate-500">
+                  Le PDF est accessible uniquement depuis le compte vérifié du destinataire,
+                  après envoi autorisé. Son empreinte SHA-256 est vérifiée côté serveur.
+                </p>
+              </section>
+
               <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                 <strong>Signature non disponible.</strong> L&apos;identité du compte et
                 le circuit peuvent être contrôlés, mais l&apos;envoi et la capture
