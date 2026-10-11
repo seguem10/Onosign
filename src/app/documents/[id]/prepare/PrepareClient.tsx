@@ -416,6 +416,7 @@ console.log("1.7 - AFTER setLoading false");
     required_power_signers: number;
     actual_power_signers: number;
     signers_missing_signature_fields: number;
+    pdf_integrity_verified: boolean;
   };
   const [preflight, setPreflight] = useState<BlueprintPreflight | null>(null);
   const [preflightLoading, setPreflightLoading] = useState(false);
@@ -443,6 +444,11 @@ console.log("1.7 - AFTER setLoading false");
     requester_mapping_invalid: "Le demandeur initial n’est pas correctement identifié.",
     duplicate_signing_order: "Plusieurs destinataires occupent la même position de signature.",
     invalid_signature_field: "Un champ PDF est invalide ou associé à un mauvais destinataire.",
+    original_pdf_missing_hash: "Le PDF original ne possède pas d'empreinte SHA-256 valide.",
+    original_pdf_invalid_path: "Le PDF original n'est pas dans le dossier du créateur.",
+    original_pdf_unavailable: "Le fichier PDF original est inaccessible ou trop volumineux.",
+    original_pdf_invalid_format: "Le contenu stocké ne correspond pas à un PDF.",
+    original_pdf_mismatch: "L'empreinte du PDF a changé : document potentiellement altéré.",
   };
   async function checkBlueprintPreflight() {
     if (!document?.signature_blueprint_id || preflightLoading) return;
@@ -450,12 +456,13 @@ console.log("1.7 - AFTER setLoading false");
     setPreflightError("");
     setPreflight(null);
     try {
-      const supabase = createClient();
-      const {data,error} = await supabase.rpc("onosign_blueprint_preflight", {
-        p_document_id: documentId,
+      const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/review`, {
+        method: "GET",
+        cache: "no-store",
       });
-      if (error) throw new Error(error.message);
-      setPreflight(data as BlueprintPreflight);
+      const data = await response.json() as BlueprintPreflight & {message?: string};
+      if (!response.ok) throw new Error(data.message ?? "Vérification serveur indisponible.");
+      setPreflight(data);
     } catch (error) {
       setPreflightError(error instanceof Error ? error.message : "Contrôle indisponible");
     } finally {
@@ -1252,13 +1259,13 @@ function resizeField(
               <div>
                 <h2 className="font-semibold text-slate-900">Contrôle du circuit DI / DR</h2>
                 <p className="text-xs text-slate-500">
-                  Rapport de vérification uniquement. L'envoi reste désactivé.
+                  Contrôle du circuit et de l'intégrité PDF côté serveur. L'envoi reste désactivé.
                 </p>
               </div>
               <button type="button" onClick={() => void checkBlueprintPreflight()}
                 disabled={preflightLoading}
                 className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-40">
-                {preflightLoading ? "Vérification…" : "Vérifier le circuit"}
+                {preflightLoading ? "Vérification…" : "Vérifier circuit + PDF"}
               </button>
             </div>
             {preflightError && <p role="alert" className="text-sm text-red-700">{preflightError}</p>}
@@ -1270,6 +1277,7 @@ function resizeField(
                   ? "Circuit prêt pour revue — envoi toujours bloqué"
                   : "Des corrections sont nécessaires avant la revue"}</p>
                 <p className="mt-1">Destinataires : {preflight.recipients} · Fondés de pouvoir : {preflight.actual_power_signers}/{preflight.required_power_signers}</p>
+                <p className="mt-1">PDF original : {preflight.pdf_integrity_verified ? "Empreinte vérifiée" : "Non vérifié"}</p>
                 {preflight.issues.length > 0 && (
                   <ul className="mt-2 list-inside list-disc">
                     {preflight.issues.map((issue) => (
