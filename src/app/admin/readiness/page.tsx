@@ -82,10 +82,10 @@ export default async function AdminReadinessPage() {
               <p className="mt-2 text-sm text-slate-600">Compteurs techniques de votre organisation ; aucune adresse e-mail ni aucun jeton ne sont affichés.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <ReadinessCard title="En attente" value={String(delivery.pending ?? 0)} />
-                <ReadinessCard title="En échec" value={String(delivery.failed ?? 0)} warning={(delivery.failed ?? 0) > 0} />
-                <ReadinessCard title="Marqués envoyés" value={String(delivery.sent ?? 0)} />
+                <ReadinessCard title="À examiner manuellement" value={String(delivery.failed ?? 0)} warning={(delivery.failed ?? 0) > 0} />
+                <ReadinessCard title="Marqués livrés par le fournisseur" value={String(delivery.sent ?? 0)} />
               </div>
-              <p className="mt-3 text-xs font-semibold text-amber-800">Statut : envoi réel non autorisé. Ces données ne prouvent pas une livraison effective.</p>
+              <p className="mt-3 text-xs font-semibold text-amber-800">Statut : envoi réel non autorisé. Un statut « livré » indique uniquement l’acceptation par le fournisseur, pas la lecture par le signataire.</p>
             </section>
             <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-6">
               <h2 className="text-lg font-bold text-amber-950">🚫 Signatures réelles non autorisées</h2>
