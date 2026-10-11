@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { verifyStoredPdf } from "@/lib/server/pdf-integrity";
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
@@ -52,9 +52,8 @@ export async function GET(
     }
 
     const bytes = Buffer.from(await pdf.arrayBuffer());
-    if (bytes.subarray(0, 5).toString("ascii") !== "%PDF-") return denied();
-    const actual = createHash("sha256").update(bytes).digest("hex");
-    if (actual !== info.original_sha256.toLowerCase()) {
+    const integrity = verifyStoredPdf(bytes, info.original_sha256);
+    if (!integrity.verified) {
       return NextResponse.json(
         { message: "Intégrité du PDF non vérifiée : téléchargement bloqué." },
         { status: 409, headers: noStore }
