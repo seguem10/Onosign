@@ -19,6 +19,14 @@ This file defines implementation and acceptance gates. Checking these boxes requ
 - [x] Private PDF upload bucket limits new files to 20 MiB and MIME application/pdf.
 - [x] Ten read-only Supabase security invariants passed; stored in `supabase/tests/onomo_release_security_readonly.sql`.
 - [x] Server-only token hashing and ordered signing decision primitives have passing unit tests; **these primitives do not yet send or process signatures**.
+- [x] New DI/DR drafts and the verified requester are inserted in **one database transaction**; direct DI/DR inserts are blocked. Unused PDF uploads are cleaned up on failure.
+- [x] Requester identity and first signing position are locked for new DI/DR; a second first signer is rejected by a unique index.
+- [x] User-facing dashboard loads actual own-document counts, recent drafts and only assigned hotel workspaces, replacing dead placeholder counters.
+- [x] Internal /notifications inbox logs created drafts immediately and is wired for future sent-to-signer events, with owner-only RLS and mark-as-read. **No external e-mails are sent.**
+- [x] `/sign` shows read-only tasks only for confirmed Supabase Auth e-mails.
+- [x] Shared EUR parser and tests cover 0, 4,999.99, 5,000, 19,999.99, 20,000, 20,000.01, and 50,000 and reject malformed amounts. This corrects a blocked DI/DR input form.
+- [x] Seven additional read-only database security checks passed for the atomic draft, requester lock, and notification privileges.
+- [ ] Exercise the full new-document browser flow with a dedicated authorized QA user and sample PDF in a non-production workspace.
 - [x] Read-only signer task lookup checks Supabase Auth verified e-mail against the intended recipient and ordered signer eligibility; the `/sign/[id]` portal clearly keeps signing disabled.
 - [x] Original PDF debug traces containing recipient data or signed URLs were removed from the document editor.
 - [ ] Active authenticated recipient signing, notifications, PDF stamping and completed envelope lifecycle.
