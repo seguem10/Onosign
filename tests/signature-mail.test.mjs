@@ -22,7 +22,7 @@ test("HTML template escapes all variable content and never embeds HTML from name
     recipientName: "<img src=x onerror=alert(1)>",
     organizationName: "ONOMO & Partners",
     documentTitle: '<script>alert("x")</script>',
-    loginUrl: signerPortalUrl(origin, id),
+    appOrigin: origin, documentId: id,
   });
   assert.equal(mail.subject, "OnoSign — Document en attente de signature");
   assert.ok(mail.html.includes("&lt;img src=x"));
@@ -35,10 +35,10 @@ test("HTML template escapes all variable content and never embeds HTML from name
 
 test("mail rejects invalid links and malformed expiration dates", () => {
   const base = { recipientName: "Raf", organizationName: "ONOMO", documentTitle: "DR" };
-  assert.throws(() => renderOnoSignInvitation({ ...base, loginUrl: "http://example.org/sign/" + id }));
-  assert.throws(() => renderOnoSignInvitation({ ...base, loginUrl: "https://example.org/" }));
+  assert.throws(() => renderOnoSignInvitation({ ...base, appOrigin: "http://example.org", documentId: id }));
+  assert.throws(() => renderOnoSignInvitation({ ...base, appOrigin: "https://example.org/path", documentId: id }));
   assert.throws(() => renderOnoSignInvitation({
-    ...base, loginUrl: signerPortalUrl(origin, id), expiry: "not-a-date",
+    ...base, appOrigin: origin, documentId: id, expiry: "not-a-date",
   }));
 });
 
