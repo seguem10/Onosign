@@ -3,7 +3,7 @@
  * This file is never imported from a public route or a client component.
  * No email can be sent unless an operator explicitly enables the transport.
  */
-import type { InvitationMail } from "./signature-mail.ts";
+import type { InvitationMail } from "./signature-mail";
 
 export type DeliveryConfig = {
   enabled: boolean;
