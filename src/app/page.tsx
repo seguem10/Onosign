@@ -77,7 +77,7 @@ export default function Home() {
 
           <div className="max-w-xl">
             <p className="mb-5 text-sm font-semibold uppercase tracking-[0.25em] text-emerald-400">
-              Secure signatures. Built for ONOMO
+              Circuits documentaires ONOMO · Version pilote
             </p>
 
             <h1 className="text-5xl font-bold leading-tight">
@@ -87,8 +87,8 @@ export default function Home() {
             </h1>
 
             <p className="mt-6 text-lg text-slate-400">
-              Send, sign and manage your agreements securely from one
-              platform.
+              Préparez les documents DI et DR et vérifiez les circuits d'approbation.
+              Les signatures réelles seront activées après validation complète.
             </p>
           </div>
 
@@ -116,8 +116,13 @@ export default function Home() {
             </h2>
 
             <p className="mt-2 text-slate-500">
-              Sign in to manage your documents.
+              Connectez-vous pour préparer vos documents ONOMO.
             </p>
+            <div role="status" className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+              <strong>Version pilote — signatures non activées.</strong>
+              <p className="mt-1">La préparation des documents DI/DR est en cours de validation.
+                Aucun document ne peut être envoyé pour signature électronique réelle.</p>
+            </div>
 
             <form onSubmit={signIn} className="mt-8 space-y-5">
 
