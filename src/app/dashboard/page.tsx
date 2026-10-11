@@ -117,6 +117,7 @@ export default function DashboardPage() {
           <Link href="/dashboard" aria-current="page" className="rounded-xl bg-slate-800 px-4 py-3 font-semibold">Tableau de bord</Link>
           <Link href="/documents/new" className="rounded-xl px-4 py-3 text-slate-300 hover:bg-slate-900">Nouveau document</Link>
           <Link href="/sign" className="rounded-xl px-4 py-3 text-slate-300 hover:bg-slate-900">Mes signatures</Link>
+          <Link href="/notifications" className="rounded-xl px-4 py-3 text-slate-300 hover:bg-slate-900">Notifications</Link>
           <Link href="/templates" className="rounded-xl px-4 py-3 text-slate-300 hover:bg-slate-900">Modèles</Link>
           <Link href="/admin" className="rounded-xl px-4 py-3 text-slate-300 hover:bg-slate-900">Administration</Link>
         </nav>
