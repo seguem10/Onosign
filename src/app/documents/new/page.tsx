@@ -40,11 +40,6 @@ export default function NewDocumentPage() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [organizationId, setOrganizationId] = useState("");
   const [userId, setUserId] = useState("");
-  const [userFullName, setUserFullName] =
-  useState("");
-
-const [userEmail, setUserEmail] =
-  useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -65,28 +60,6 @@ const [userEmail, setUserEmail] =
         }
 
         setUserId(user.id);
-        const { data: profile, error: profileError } =
-  await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .maybeSingle();
-
-if (profileError) {
-  console.error(
-    "Unable to load user profile:",
-    profileError
-  );
-}
-setUserFullName(
-  profile?.full_name ||
-    user.user_metadata?.full_name ||
-    user.email ||
-    "Collaborateur"
-);
-
-setUserEmail(user.email || "");
-
         const { data: membership, error: membershipError } = await supabase
           .from("organization_members")
           .select("organization_id")
@@ -240,62 +213,30 @@ setWorkflowTemplates(templatesData ?? []);
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
-      // A legacy template selected in the UI must never be treated as applied.
-      // The document remains a draft until an atomic workflow assignment exists.
-      const { data: createdDocument, error: documentError } = await supabase
-        .from("documents")
-        .insert({
-          organization_id: organizationId,
-          workspace_id: workspace.id,
-          created_by: userId,
-          title: title.trim(),
-          storage_path: uploadedPath,
-          status: "draft",
-          document_type: documentType,
-          amount_eur: parsedAmountEur,
-          original_sha256: originalSha256,
-        })
-        .select("id")
-        .single();
-
-      if (documentError) {
-        await supabase.storage
-          .from("documents")
-          .remove([uploadedPath]);
-
-        throw new Error(
-          `Document creation failed: ${documentError.message}`
-        );
+      // The database creates the draft, requester and audit records atomically.
+      // A model selected in the historical UI remains display-only.
+      const { data: createdDocumentId, error: documentError } = await supabase.rpc(
+        "onosign_create_document_draft",
+        {
+          p_organization_id: organizationId,
+          p_workspace_id: workspace.id,
+          p_title: title.trim(),
+          p_storage_path: uploadedPath,
+          p_document_type: documentType,
+          p_amount_eur: parsedAmountEur,
+          p_original_sha256: originalSha256,
+        }
+      );
+      if (documentError || !createdDocumentId) {
+        throw new Error(documentError?.message ?? "Impossible de créer le brouillon.");
       }
-
-      if (!createdDocument) {
-        throw new Error("Document was not created.");
-      }
-      const { error: creatorRecipientError } =
-  await supabase
-    .from("recipients")
-    .insert({
-      document_id: createdDocument.id,
-      name: userFullName,
-      email: userEmail,
-      role_label: "Demandeur",
-      signing_order: 1,
-      status: "pending",
-      recipient_type: "signer",
-    });
-
-if (creatorRecipientError) {
-  throw new Error(
-    `Unable to add the requester as first signer: ${creatorRecipientError.message}`
-  );
-}
-
-
-
-      router.push(`/documents/${createdDocument.id}/prepare`);
+      router.push(`/documents/${createdDocumentId}/prepare`);
     } catch (error) {
       console.error(error);
-
+      if (uploadedPath) {
+        // Only unused uploads may be deleted; referenced originals are protected.
+        await supabase.storage.from("documents").remove([uploadedPath]);
+      }
       setErrorMessage(
         error instanceof Error
           ? error.message
