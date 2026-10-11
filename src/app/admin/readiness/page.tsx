@@ -32,7 +32,7 @@ function ReadinessCard({ title, value, warning }: {
 export default async function AdminReadinessPage() {
   // Server-side admin authorization is enforced by /admin/layout.tsx.
   const supabase = await createServerSupabaseClient();
-  const [hotelResult, blueprintResult, documentResult, deliveryResult] = await Promise.all([
+  const [hotelResult, blueprintResult, documentResult, deliveryResult, archiveResult] = await Promise.all([
     supabase.rpc("onosign_hotel_onboarding_status"),
     supabase.from("signature_blueprints")
       .select("id,name,document_type,scope,is_active").order("name"),
@@ -40,10 +40,12 @@ export default async function AdminReadinessPage() {
       .select("id", { count: "exact", head: true })
       .in("document_type", ["DI", "DR"]),
     supabase.rpc("onosign_delivery_health"),
+    supabase.rpc("onosign_archive_health"),
   ]);
 
-  const error = hotelResult.error ?? blueprintResult.error ?? documentResult.error ?? deliveryResult.error;
+  const error = hotelResult.error ?? blueprintResult.error ?? documentResult.error ?? deliveryResult.error ?? archiveResult.error;
   const delivery = (deliveryResult.data ?? {}) as { pending?: number; failed?: number; sent?: number; delivery_enabled?: boolean };
+  const archive = (archiveResult.data ?? {}) as { final_bucket_private?: boolean; registered_artifacts?: number; completed_documents?: number; missing_archives?: number; archive_processing_enabled?: boolean };
   const hotels = (hotelResult.data ?? []) as Hotel[];
   const models = (blueprintResult.data ?? []) as Model[];
   const memberless = hotels.filter((hotel) => !hotel.has_members);
@@ -86,6 +88,23 @@ export default async function AdminReadinessPage() {
                 <ReadinessCard title="Marqués livrés par le fournisseur" value={String(delivery.sent ?? 0)} />
               </div>
               <p className="mt-3 text-xs font-semibold text-amber-800">Statut : envoi réel non autorisé. Un statut « livré » indique uniquement l’acceptation par le fournisseur, pas la lecture par le signataire.</p>
+            </section>
+            <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6">
+              <h2 className="text-lg font-bold">Stockage privé des PDF finaux</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Registre immuable accessible après finalisation. Aucun PDF final n&apos;est
+                généré automatiquement tant que le moteur de signature n&apos;est pas validé.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <ReadinessCard title="PDF finaux archivés" value={String(archive.registered_artifacts ?? 0)} />
+                <ReadinessCard title="Documents terminés" value={String(archive.completed_documents ?? 0)} />
+                <ReadinessCard title="Archives manquantes" value={String(archive.missing_archives ?? 0)}
+                  warning={(archive.missing_archives ?? 0) > 0} />
+              </div>
+              <p className="mt-3 text-xs font-semibold text-slate-700">
+                Espace privé : {archive.final_bucket_private ? "confirmé" : "à vérifier"}.
+                {" "}Traitement automatique : désactivé.
+              </p>
             </section>
             <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-6">
               <h2 className="text-lg font-bold text-amber-950">🚫 Signatures réelles non autorisées</h2>
