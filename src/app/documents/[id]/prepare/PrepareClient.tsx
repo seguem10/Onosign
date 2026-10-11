@@ -424,6 +424,7 @@ const dragOffset = useRef({
     actual_power_signers: number;
     signers_missing_signature_fields: number;
     pdf_integrity_verified: boolean;
+    pdf_page_count: number | null;
   };
   const [preflight, setPreflight] = useState<BlueprintPreflight | null>(null);
   const [preflightLoading, setPreflightLoading] = useState(false);
@@ -456,6 +457,9 @@ const dragOffset = useRef({
     original_pdf_unavailable: "Le fichier PDF original est inaccessible ou trop volumineux.",
     original_pdf_invalid_format: "Le contenu stocké ne correspond pas à un PDF.",
     original_pdf_mismatch: "L'empreinte du PDF a changé : document potentiellement altéré.",
+    original_pdf_invalid_structure: "Le PDF est malformé, chiffré ou possède trop de pages.",
+    signature_fields_unavailable: "Impossible de vérifier le placement des champs PDF.",
+    signature_field_out_of_pdf_range: "Un champ de signature se trouve en dehors des pages réelles du PDF.",
   };
   async function checkBlueprintPreflight() {
     if (!document?.signature_blueprint_id || preflightLoading) return;
@@ -1278,6 +1282,9 @@ function resizeField(
                   : "Des corrections sont nécessaires avant la revue"}</p>
                 <p className="mt-1">Destinataires : {preflight.recipients} · Fondés de pouvoir : {preflight.actual_power_signers}/{preflight.required_power_signers}</p>
                 <p className="mt-1">PDF original : {preflight.pdf_integrity_verified ? "Empreinte vérifiée" : "Non vérifié"}</p>
+                {preflight.pdf_page_count !== null && (
+                  <p className="mt-1">Pages PDF vérifiées : {preflight.pdf_page_count}</p>
+                )}
                 {preflight.issues.length > 0 && (
                   <ul className="mt-2 list-inside list-disc">
                     {preflight.issues.map((issue) => (
