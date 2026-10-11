@@ -1,4 +1,5 @@
-import { MAX_ONOSIGN_PDF_BYTES } from "./pdf-integrity";
+// This limit mirrors the 20 MiB storage bucket ceiling.
+const MAX_ONOSIGN_PDF_BYTES = 20 * 1024 * 1024;
 
 export const MAX_ONOSIGN_PDF_PAGES = 500;
 
