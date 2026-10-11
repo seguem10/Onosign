@@ -199,8 +199,13 @@ export default function DashboardPage() {
                     {doc.document_type ?? "Document"} · {new Date(doc.created_at).toLocaleDateString("fr-FR")} · {pill[doc.status] ?? doc.status}
                   </p>
                 </div>
-                <Link href={`/documents/${doc.id}/prepare`} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50">
-                  Consulter
+                <Link
+                  href={doc.status === "completed"
+                    ? `/documents/${doc.id}/archive`
+                    : `/documents/${doc.id}/prepare`}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-50"
+                >
+                  {doc.status === "completed" ? "Archive signée" : "Consulter"}
                 </Link>
               </li>)}
             </ul>}
