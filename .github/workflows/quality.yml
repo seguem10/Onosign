@@ -31,6 +31,8 @@ jobs:
         run: npx tsc --noEmit
       - name: ESLint
         run: npm run lint
+      - name: Signing logic unit tests
+        run: node --experimental-strip-types --test tests/*.test.mjs
       - name: Production dependency audit
         run: npm audit --omit=dev --audit-level=high
       - name: Production build
