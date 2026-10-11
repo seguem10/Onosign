@@ -121,6 +121,37 @@ export default function PrepareDocumentPage() {
   type AuditEvent = { id: number; event_type: string; previous_status: string | null; next_status: string | null; occurred_at: string };
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [auditError, setAuditError] = useState("");
+  const [auditChainBusy, setAuditChainBusy] = useState(false);
+  const [auditChainMessage, setAuditChainMessage] = useState("");
+  async function verifyAuditChain() {
+    if (auditChainBusy) return;
+    setAuditChainBusy(true);
+    setAuditChainMessage("");
+    try {
+      const response = await fetch(
+        `/api/documents/${encodeURIComponent(documentId)}/audit/verify`,
+        { cache: "no-store" }
+      );
+      const data: {
+        chain_valid?: boolean; event_count?: number; message?: string;
+      } = await response.json();
+      if (!response.ok) throw new Error(data.message ?? "Vérification indisponible.");
+      if (!data.event_count) {
+        setAuditChainMessage("Aucun événement enregistré : vérification impossible.");
+      } else if (data.chain_valid) {
+        setAuditChainMessage(
+          `Chaîne SHA-256 cohérente pour ${data.event_count} événement(s). Ne constitue pas une preuve juridique.`
+        );
+      } else {
+        setAuditChainMessage("⚠️ Chaîne technique incohérente : contactez l'administrateur.");
+      }
+    } catch (error) {
+      setAuditChainMessage(error instanceof Error ? error.message : "Vérification impossible.");
+    } finally {
+      setAuditChainBusy(false);
+    }
+  }
+
   useEffect(() => {
     if (!documentId) return;
     let active = true;
@@ -1879,6 +1910,17 @@ disabled={fieldDisabled}
               >
                 Exporter le rapport technique (JSON)
               </a>
+              <button
+                type="button"
+                disabled={auditChainBusy}
+                onClick={() => void verifyAuditChain()}
+                className="mt-3 ml-0 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 disabled:opacity-50"
+              >
+                {auditChainBusy ? "Vérification…" : "Vérifier la chaîne SHA-256"}
+              </button>
+              {auditChainMessage && (
+                <p role="status" className="mt-2 text-xs text-slate-700">{auditChainMessage}</p>
+              )}
               {auditError && <p role="alert" className="mt-2 text-xs text-amber-700">{auditError}</p>}
               {!auditError && auditEvents.length === 0 && <p className="mt-2 text-xs text-slate-500">Aucun événement enregistré pour ce document.</p>}
               <ol className="mt-3 space-y-2">
